@@ -1,0 +1,29 @@
+# Rust
+/target
+**/target
+**/*.rs.bk
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Scratch & local capture artifacts
+*.png
+!fixtures/**/*.png
+*.log
+.scratch/
+tmp/
+.grok/
+
+# Screenshots written by BRP extras during local demos
+/screenshots/
+/captures/
