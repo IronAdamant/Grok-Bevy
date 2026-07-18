@@ -19,10 +19,26 @@ Thumbs.db
 # Scratch & local capture artifacts
 *.png
 !fixtures/**/*.png
+# Production template disk assets (required by scaffold --kind 2d|3d)
+!templates/**/*.png
 *.log
 .scratch/
 tmp/
-.grok/
+# Local Grok client config; keep versioned skills for the agent pack
+.grok/*
+!.grok/skills/
+!.grok/skills/**
+# Tooling caches / local indexes (not product source)
+.wikifier_staging/
+.stele-context/
+
+# Wikifier generated artifacts (regenerate with update-maps)
+# Keep map_paths.txt + monitored_paths.txt tracked.
+file_health.md
+file_health.json
+library.md
+pending_updates.md
+journal/
 
 # Screenshots written by BRP extras during local demos
 /screenshots/

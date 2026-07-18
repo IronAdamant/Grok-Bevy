@@ -57,6 +57,10 @@ fn licenses_and_docs_present() {
         ".github/workflows/ci.yml",
         "docs/FAST_START.md",
         "docs/TROUBLESHOOTING.md",
+        "docs/PRODUCTION_GAMES.md",
+        "docs/ASSET_CONVENTIONS.md",
+        "docs/SHIPPING.md",
+        "AGENTS.md",
     ] {
         let p = root.join(rel);
         assert!(p.is_file(), "missing {rel}");
@@ -65,4 +69,35 @@ fn licenses_and_docs_present() {
     assert!(readme.contains("mcp_servers.grok-bevy") || readme.contains("grok mcp add"));
     assert!(readme.contains("0.19"));
     assert!(readme.contains("bevy_brp_mcp"));
+    let shipping = fs::read_to_string(root.join("docs/SHIPPING.md")).unwrap();
+    assert!(shipping.contains("cargo build --release"));
+    let assets = fs::read_to_string(root.join("docs/ASSET_CONVENTIONS.md")).unwrap();
+    assert!(assets.contains("assets/sprites"));
+    assert!(assets.contains("assets/models"));
+}
+
+#[test]
+fn production_2d_template_is_playable_slice() {
+    let root = repo_root().join("templates/game-2d");
+    assert!(root.join("assets/sprites/player.png").is_file());
+    let gameplay = fs::read_to_string(root.join("src/systems/gameplay.rs")).unwrap();
+    assert!(gameplay.contains("player_movement"));
+    assert!(gameplay.contains("ButtonInput") || gameplay.contains("KeyCode"));
+    let states = fs::read_to_string(root.join("src/states.rs")).unwrap();
+    assert!(states.contains("MainMenu") && states.contains("Playing"));
+    let loading = fs::read_to_string(root.join("src/systems/loading.rs")).unwrap();
+    assert!(loading.contains("sprites/player.png"));
+    let cargo = fs::read_to_string(root.join("Cargo.toml")).unwrap();
+    assert!(cargo.contains("remote") && cargo.contains("capture"));
+}
+
+#[test]
+fn production_3d_template_is_playable_slice() {
+    let root = repo_root().join("templates/game-3d");
+    assert!(root.join("assets/models/ground_tint.png").is_file());
+    let gameplay = fs::read_to_string(root.join("src/systems/gameplay.rs")).unwrap();
+    assert!(gameplay.contains("player_movement"));
+    assert!(gameplay.contains("Camera3d"));
+    let loading = fs::read_to_string(root.join("src/systems/loading.rs")).unwrap();
+    assert!(loading.contains("models/ground_tint.png"));
 }

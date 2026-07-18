@@ -49,11 +49,17 @@ enum Commands {
         #[arg(long)]
         delegate_brp_mcp: bool,
     },
-    /// Scaffold a BRP-enabled Bevy sample app.
+    /// Scaffold a Bevy game from in-repo templates (`2d`, `3d`, or `demo` fixture).
     Scaffold {
         /// Destination directory.
-        #[arg(long, default_value = "sample-bevy-app")]
+        #[arg(long, default_value = "my-bevy-game")]
         path: PathBuf,
+        /// Template kind: `2d` (production), `3d` (production), or `demo` (BRP fixture).
+        #[arg(long, default_value = "2d")]
+        kind: String,
+        /// Cargo package / crate name (default: derived from --path).
+        #[arg(long)]
+        name: Option<String>,
         /// Overwrite if the directory exists.
         #[arg(long)]
         force: bool,
@@ -161,7 +167,15 @@ fn main() -> Result<()> {
                 rt.block_on(mcp::run_stdio_server())
             }
         }
-        Commands::Scaffold { path, force } => scaffold::scaffold_sample_app(&path, force),
+        Commands::Scaffold {
+            path,
+            kind,
+            name,
+            force,
+        } => {
+            let kind = scaffold::ScaffoldKind::parse(&kind)?;
+            scaffold::scaffold_app(&path, kind, name.as_deref(), force)
+        }
         Commands::Brp { cmd } => cmd_brp(cmd),
         Commands::Compat => {
             print_compat();
