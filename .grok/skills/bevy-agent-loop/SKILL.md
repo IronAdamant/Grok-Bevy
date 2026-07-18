@@ -52,6 +52,15 @@ You control a **running** Bevy app. Prefer evidence from **viewport capture** ov
 - After art changes, confirm texture path and that the handle finished loading (Loading state).  
 - Compare before/after captures when iterating.
 
+## Demo DoD captures
+
+When finishing a short demo (`docs/GAME_DOD.md` / skill `bevy-demo-game`), capture at least:
+
+1. **Main menu**  
+2. **Mid-play** with objective/HUD visible  
+3. **Victory or GameOver** end screen  
+
+Movement-only scenes are not complete demos.
 ## BRP hygiene
 
 - Use **fully-qualified** component type paths from `rpc.discover` / list components when unsure.  

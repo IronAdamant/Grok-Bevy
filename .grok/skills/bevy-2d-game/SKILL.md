@@ -10,8 +10,8 @@ metadata:
 
 # Bevy 2D games
 
-Requires **`bevy-production`** layout and states. This skill covers the **2D vertical slice**.
-
+Requires **`bevy-production`** layout and states. This skill covers the **2D kit**.  
+For a **complete short demo**, also load **`bevy-demo-game`** and meet **`docs/GAME_DOD.md`** (objective + win/lose + challenge—not movement alone).
 ## Unprompted defaults
 
 | Need | Default |

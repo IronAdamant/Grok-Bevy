@@ -10,8 +10,8 @@ metadata:
 
 # Bevy 3D games
 
-Requires **`bevy-production`** layout and states. This skill covers the **3D vertical slice**.
-
+Requires **`bevy-production`** layout and states. This skill covers the **3D kit**.  
+For a **complete short demo**, also load **`bevy-demo-game`** and meet **`docs/GAME_DOD.md`**.
 ## Unprompted defaults
 
 | Need | Default |

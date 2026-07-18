@@ -136,16 +136,16 @@ async fn handle_request(method: &str, params: Value, state: Arc<Mutex<ServerStat
 /// High-signal agent instructions returned on MCP `initialize`.
 pub fn mcp_instructions() -> String {
     concat!(
-        "Grok-Bevy MCP: environment readiness, BRP query/mutate/call, viewport capture, and app launch. ",
-        "Production games (not demos): load Grok skills bevy-production plus bevy-2d-game or bevy-3d-game; ",
-        "for art load game-asset-core (+ specialist); for live verify load bevy-agent-loop. ",
-        "Scaffold: `grok-bevy scaffold --kind 2d|3d|demo --path DIR` (2d/3d = playable production slices; demo = BRP fixture only). ",
-        "MCP prompts: start_2d_game, start_3d_game, iterate_scene, prepare_ship. ",
-        "Workflow router tool: bevy_workflow with goal new_2d|new_3d|verify_scene|ship|add_sprite. ",
-        "Asset roots: assets/sprites, assets/models, assets/ui, assets/audio. Ship: cargo build --release. ",
-        "Typical loop: bevy_env_check → bevy_launch_app (features remote,capture) → bevy_brp_query/mutate → bevy_capture_viewport. ",
-        "BRP default port 15702. For full BRP hierarchy/watches/input, also install and register bevy_brp_mcp ",
-        "(cargo install bevy_brp_mcp --locked)."
+        "Grok-Bevy MCP (alpha game factory): env readiness, BRP query/mutate/call, viewport capture, app launch. ",
+        "Complete short demos must meet docs/GAME_DOD.md (menu, objective, challenge, win/lose)—not movement-only. ",
+        "Skills: bevy-demo-game + bevy-production + bevy-2d-game or bevy-3d-game; art game-asset-core; live bevy-agent-loop. ",
+        "Scaffold: `grok-bevy scaffold --kind 2d|3d|demo --path DIR` (2d/3d kits; demo = BRP fixture only). ",
+        "Dogfood (when present): games/demo-2d, games/demo-3d. Roadmap: docs/ROADMAP.md. ",
+        "MCP prompts: start_2d_game, start_3d_game, build_demo_2d, build_demo_3d, iterate_scene, prepare_ship, package_demo. ",
+        "bevy_workflow goals: new_2d|new_3d|complete_demo_2d|complete_demo_3d|verify_scene|ship|package_demo|add_sprite. ",
+        "Asset roots: assets/sprites, models, ui, audio. Ship: cargo build --release; package binary + assets. ",
+        "Loop: bevy_env_check → bevy_launch_app (remote,capture) → query/mutate → bevy_capture_viewport. Port 15702. ",
+        "Optional full BRP: cargo install bevy_brp_mcp --locked."
     )
     .to_string()
 }
@@ -164,31 +164,53 @@ pub fn prompt_catalog() -> &'static [PromptDef] {
         PromptDef {
             name: "start_2d_game",
             description:
-                "Scaffold and build a production 2D Bevy game (skills, layout, vertical slice).",
+                "Scaffold a 2D Bevy game kit and build toward GAME_DOD (short demo, not movement-only).",
             body: concat!(
-                "You are building a production 2D Bevy 0.19 game with Grok-Bevy — not a cube demo.\n\n",
-                "1. Load skills: bevy-production + bevy-2d-game. For art, also game-asset-core (+ specialist).\n",
-                "2. Scaffold: `grok-bevy scaffold --kind 2d --path <dir>` (or extend an existing production layout).\n",
-                "3. Keep layout: thin main.rs, plugins, states Loading|MainMenu|Playing|Paused, assets/sprites|ui|audio.\n",
-                "4. Ensure menu→play, WASD/arrow movement, and at least one disk asset via AssetServer.\n",
-                "5. Run with --features remote,capture. Live verify with bevy-agent-loop: ",
-                "bevy_env_check → bevy_launch_app → bevy_brp_query → bevy_capture_viewport.\n",
-                "6. Optional: call bevy_workflow with goal \"new_2d\" for an ordered checklist.\n",
+                "You are building a 2D Bevy 0.19 short demo with Grok-Bevy — not a cube fixture.\n\n",
+                "1. Load: bevy-demo-game + bevy-production + bevy-2d-game. Art: game-asset-core (+ specialist).\n",
+                "2. Prefer games/demo-2d if present; else `grok-bevy scaffold --kind 2d --path <dir>`.\n",
+                "3. Meet docs/GAME_DOD.md: menu, objective, challenge, win/lose, pause, assets, README.\n",
+                "4. Features remote,capture. Verify with bevy-agent-loop (captures: menu, play, end).\n",
+                "5. bevy_workflow goal complete_demo_2d or new_2d.\n",
             ),
         },
         PromptDef {
             name: "start_3d_game",
             description:
-                "Scaffold and build a production 3D Bevy game (skills, lighting, vertical slice).",
+                "Scaffold a 3D Bevy game kit and build toward GAME_DOD (short demo, not movement-only).",
             body: concat!(
-                "You are building a production 3D Bevy 0.19 game with Grok-Bevy — not a static BRP fixture.\n\n",
-                "1. Load skills: bevy-production + bevy-3d-game. UI/art overlays: game-asset-core (+ specialist).\n",
-                "2. Scaffold: `grok-bevy scaffold --kind 3d --path <dir>`.\n",
-                "3. Keep layout: plugins, states Loading|MainMenu|Playing|Paused, assets/models|ui|audio.\n",
-                "4. Ensure menu→play, XZ (or genre) movement, lit scene, disk texture/glTF path under assets/models.\n",
-                "5. Run with --features remote,capture. Verify via bevy-agent-loop and bevy_capture_viewport ",
-                "(avoid black captures: lights, visible window).\n",
-                "6. Optional: bevy_workflow goal \"new_3d\".\n",
+                "You are building a 3D Bevy 0.19 short demo with Grok-Bevy — not a static BRP cube.\n\n",
+                "1. Load: bevy-demo-game + bevy-production + bevy-3d-game. Art: game-asset-core as needed.\n",
+                "2. Prefer games/demo-3d if present; else `grok-bevy scaffold --kind 3d --path <dir>`.\n",
+                "3. Meet docs/GAME_DOD.md: menu, objective, challenge, win/lose, pause, assets, lighting.\n",
+                "4. Features remote,capture. Captures must show lit play + end state.\n",
+                "5. bevy_workflow goal complete_demo_3d or new_3d.\n",
+            ),
+        },
+        PromptDef {
+            name: "build_demo_2d",
+            description:
+                "Finish the 2D short demo to GAME_DOD (objective, challenge, win/lose, captures).",
+            body: concat!(
+                "Complete the 2D Bevy short demo per docs/GAME_DOD.md.\n\n",
+                "1. Skills: bevy-demo-game + bevy-2d-game + bevy-production + bevy-agent-loop.\n",
+                "2. Work in games/demo-2d or scaffolded 2d project.\n",
+                "3. Implement objective + challenge + Victory/GameOver; not movement-only.\n",
+                "4. Capture menu, mid-play, end state via bevy_capture_viewport.\n",
+                "5. bevy_workflow: complete_demo_2d.\n",
+            ),
+        },
+        PromptDef {
+            name: "build_demo_3d",
+            description:
+                "Finish the 3D short demo to GAME_DOD (objective, challenge, win/lose, captures).",
+            body: concat!(
+                "Complete the 3D Bevy short demo per docs/GAME_DOD.md.\n\n",
+                "1. Skills: bevy-demo-game + bevy-3d-game + bevy-production + bevy-agent-loop.\n",
+                "2. Work in games/demo-3d or scaffolded 3d project.\n",
+                "3. Implement objective + challenge + end states; keep scene lit for captures.\n",
+                "4. Capture menu, mid-play, end state.\n",
+                "5. bevy_workflow: complete_demo_3d.\n",
             ),
         },
         PromptDef {
@@ -197,7 +219,7 @@ pub fn prompt_catalog() -> &'static [PromptDef] {
                 "Live BRP/MCP loop: launch, query/mutate, capture viewport, fix, recapture.",
             body: concat!(
                 "Iterate on a running Bevy app with evidence from viewport captures.\n\n",
-                "1. Load skill: bevy-agent-loop (and bevy-production if changing structure).\n",
+                "1. Load skill: bevy-agent-loop (and bevy-production / bevy-demo-game if incomplete DoD).\n",
                 "2. Ensure the app uses features remote,capture and BRP port 15702 (or registered target).\n",
                 "3. MCP loop: bevy_env_check → bevy_launch_app (if needed) → bevy_brp_discover/query → ",
                 "optional bevy_brp_mutate → bevy_capture_viewport → describe defects → patch code/art → recapture.\n",
@@ -209,15 +231,27 @@ pub fn prompt_catalog() -> &'static [PromptDef] {
         PromptDef {
             name: "prepare_ship",
             description:
-                "Ship checklist: release build, assets next to binary, production readiness.",
+                "Ship checklist: GAME_DOD playability, release build, assets next to binary.",
             body: concat!(
-                "Prepare a Bevy game for engineering release (not store certification).\n\n",
-                "1. Load skill: bevy-production (ship checklist). Confirm states and playability.\n",
-                "2. Assets under assets/sprites|models|ui|audio load via AssetServer; see docs/ASSET_CONVENTIONS.md.\n",
-                "3. Run `cargo build --release`; binary at target/release/<package>. Ship assets/ beside the binary or document CWD.\n",
-                "4. Verify menu→play→pause, release textures not missing, README controls/features.\n",
-                "5. Optional live capture review with bevy_capture_viewport before calling done.\n",
-                "6. Optional: bevy_workflow goal \"ship\". See docs/SHIPPING.md.\n",
+                "Prepare a Bevy demo/game for engineering release (not Steam cert).\n\n",
+                "1. Confirm docs/GAME_DOD.md (or production ship checklist) is met.\n",
+                "2. Load bevy-production; assets under assets/sprites|models|ui|audio.\n",
+                "3. cargo build --release; ship assets/ beside the binary.\n",
+                "4. README controls + objective. Optional captures before done.\n",
+                "5. bevy_workflow goal ship. See docs/SHIPPING.md and docs/ROADMAP.md (G4 packaging).\n",
+            ),
+        },
+        PromptDef {
+            name: "package_demo",
+            description:
+                "Package a non-Steam distributable demo (binary + assets folder/zip).",
+            body: concat!(
+                "Package a playable Bevy demo for sharing (zip/folder), not Steam upload yet.\n\n",
+                "1. Confirm GAME_DOD playability first.\n",
+                "2. cargo build --release; copy binary + assets/ into dist/<name>/.\n",
+                "3. Document: run from dist so AssetServer finds assets/.\n",
+                "4. Prefer scripts/package-demo when present; bevy_workflow goal package_demo.\n",
+                "5. Steam is later (docs/STEAM_PATH / G5)—do not block packaging on Steamworks.\n",
             ),
         },
     ]
@@ -259,8 +293,11 @@ pub fn prompts_get_json(name: &str) -> Result<Value> {
 pub enum WorkflowGoal {
     New2d,
     New3d,
+    CompleteDemo2d,
+    CompleteDemo3d,
     VerifyScene,
     Ship,
+    PackageDemo,
     AddSprite,
 }
 
@@ -269,18 +306,24 @@ impl WorkflowGoal {
         match s.to_ascii_lowercase().as_str() {
             "new_2d" | "2d" | "start_2d" | "start_2d_game" => Ok(Self::New2d),
             "new_3d" | "3d" | "start_3d" | "start_3d_game" => Ok(Self::New3d),
+            "complete_demo_2d" | "build_demo_2d" | "demo_2d" | "finish_2d" => {
+                Ok(Self::CompleteDemo2d)
+            }
+            "complete_demo_3d" | "build_demo_3d" | "demo_3d" | "finish_3d" => {
+                Ok(Self::CompleteDemo3d)
+            }
             "verify_scene" | "iterate" | "iterate_scene" | "capture" => Ok(Self::VerifyScene),
             "ship" | "prepare_ship" | "release" => Ok(Self::Ship),
+            "package_demo" | "package" | "dist" | "zip" => Ok(Self::PackageDemo),
             "add_sprite" | "art" | "sprite" => Ok(Self::AddSprite),
             other => bail_unknown_goal(other),
         }
     }
-
 }
 
 fn bail_unknown_goal(other: &str) -> Result<WorkflowGoal> {
     Err(anyhow!(
-        "unknown workflow goal '{other}' (expected new_2d, new_3d, verify_scene, ship, add_sprite)"
+        "unknown workflow goal '{other}' (expected new_2d, new_3d, complete_demo_2d, complete_demo_3d, verify_scene, ship, package_demo, add_sprite)"
     ))
 }
 
@@ -288,42 +331,74 @@ fn bail_unknown_goal(other: &str) -> Result<WorkflowGoal> {
 pub fn workflow_plan(goal: WorkflowGoal) -> String {
     match goal {
         WorkflowGoal::New2d => concat!(
-            "Goal: new_2d — production 2D Bevy game\n",
+            "Goal: new_2d — start a 2D Bevy short demo (aim at GAME_DOD)\n",
             "Skills to load:\n",
-            "  1. bevy-production\n",
-            "  2. bevy-2d-game\n",
-            "  3. game-asset-core (+ specialist when generating art)\n",
-            "  4. bevy-agent-loop (when verifying live)\n",
+            "  1. bevy-demo-game\n",
+            "  2. bevy-production\n",
+            "  3. bevy-2d-game\n",
+            "  4. game-asset-core (+ specialist when generating art)\n",
+            "  5. bevy-agent-loop (when verifying live)\n",
             "Steps:\n",
             "  1. bevy_env_check (MCP) or `grok-bevy doctor`\n",
-            "  2. CLI: `grok-bevy scaffold --kind 2d --path <game-dir>`\n",
-            "  3. Implement/extend vertical slice (MainMenu→Playing, movement, assets/sprites)\n",
+            "  2. Prefer games/demo-2d if present; else `grok-bevy scaffold --kind 2d --path <game-dir>`\n",
+            "  3. Implement toward docs/GAME_DOD.md (not movement-only)\n",
             "  4. MCP: bevy_launch_app with features remote,capture\n",
-            "  5. MCP: bevy_brp_query / bevy_capture_viewport; fix until capture matches acceptance\n",
-            "  6. Optional prompt: start_2d_game\n",
+            "  5. Captures: menu, play, end — bevy_capture_viewport\n",
+            "  6. Prompt: start_2d_game or build_demo_2d; goal complete_demo_2d when finishing\n",
         )
         .to_string(),
         WorkflowGoal::New3d => concat!(
-            "Goal: new_3d — production 3D Bevy game\n",
+            "Goal: new_3d — start a 3D Bevy short demo (aim at GAME_DOD)\n",
             "Skills to load:\n",
-            "  1. bevy-production\n",
-            "  2. bevy-3d-game\n",
-            "  3. game-asset-core (+ specialist for UI/art)\n",
-            "  4. bevy-agent-loop (when verifying live)\n",
+            "  1. bevy-demo-game\n",
+            "  2. bevy-production\n",
+            "  3. bevy-3d-game\n",
+            "  4. game-asset-core (+ specialist for UI/art)\n",
+            "  5. bevy-agent-loop (when verifying live)\n",
             "Steps:\n",
             "  1. bevy_env_check or `grok-bevy doctor`\n",
-            "  2. CLI: `grok-bevy scaffold --kind 3d --path <game-dir>`\n",
-            "  3. Implement/extend slice (menu→play, movement, lighting, assets/models)\n",
+            "  2. Prefer games/demo-3d if present; else `grok-bevy scaffold --kind 3d --path <game-dir>`\n",
+            "  3. Implement toward docs/GAME_DOD.md; keep lighting for captures\n",
             "  4. MCP: bevy_launch_app (remote,capture)\n",
-            "  5. MCP: bevy_brp_query / bevy_capture_viewport; ensure lit non-black scene\n",
-            "  6. Optional prompt: start_3d_game\n",
+            "  5. Captures: menu, play, end\n",
+            "  6. Prompt: start_3d_game or build_demo_3d; goal complete_demo_3d when finishing\n",
+        )
+        .to_string(),
+        WorkflowGoal::CompleteDemo2d => concat!(
+            "Goal: complete_demo_2d — finish 2D short demo to GAME_DOD\n",
+            "Skills to load:\n",
+            "  1. bevy-demo-game (required)\n",
+            "  2. bevy-2d-game\n",
+            "  3. bevy-production\n",
+            "  4. bevy-agent-loop\n",
+            "Steps:\n",
+            "  1. Read docs/GAME_DOD.md — reject movement-only\n",
+            "  2. Ensure objective, challenge, Victory and/or GameOver, pause, assets, README\n",
+            "  3. cargo run --features remote,capture\n",
+            "  4. MCP captures: MainMenu, Playing (HUD/objective), end state\n",
+            "  5. Only then call the demo complete; optional package_demo next\n",
+        )
+        .to_string(),
+        WorkflowGoal::CompleteDemo3d => concat!(
+            "Goal: complete_demo_3d — finish 3D short demo to GAME_DOD\n",
+            "Skills to load:\n",
+            "  1. bevy-demo-game (required)\n",
+            "  2. bevy-3d-game\n",
+            "  3. bevy-production\n",
+            "  4. bevy-agent-loop\n",
+            "Steps:\n",
+            "  1. Read docs/GAME_DOD.md — reject movement-only\n",
+            "  2. Ensure objective, challenge, end states, pause, assets, lit scene, README\n",
+            "  3. cargo run --features remote,capture\n",
+            "  4. MCP captures: menu, play, end (non-black)\n",
+            "  5. Optional package_demo next\n",
         )
         .to_string(),
         WorkflowGoal::VerifyScene => concat!(
             "Goal: verify_scene — live iterate with capture evidence\n",
             "Skills to load:\n",
             "  1. bevy-agent-loop\n",
-            "  2. bevy-production (if restructuring)\n",
+            "  2. bevy-demo-game / bevy-production if DoD incomplete\n",
             "Steps:\n",
             "  1. Confirm app features remote,capture; BRP port 15702\n",
             "  2. MCP: bevy_launch_app if not running\n",
@@ -335,17 +410,31 @@ pub fn workflow_plan(goal: WorkflowGoal) -> String {
         )
         .to_string(),
         WorkflowGoal::Ship => concat!(
-            "Goal: ship — release readiness\n",
+            "Goal: ship — release readiness (non-Steam)\n",
             "Skills to load:\n",
             "  1. bevy-production (ship checklist)\n",
-            "  2. bevy-agent-loop (optional final capture)\n",
+            "  2. bevy-demo-game if short demo DoD not yet met\n",
+            "  3. bevy-agent-loop (optional final capture)\n",
             "Steps:\n",
-            "  1. Confirm menu→play→pause and disk assets under assets/\n",
+            "  1. Confirm GAME_DOD / menu→play→end and disk assets under assets/\n",
             "  2. CLI: `cargo build --release` in the game project\n",
             "  3. Place/document assets/ next to the release binary\n",
-            "  4. Update README controls/features; skim docs/SHIPPING.md + ASSET_CONVENTIONS.md\n",
-            "  5. Optional: bevy_capture_viewport final visual check\n",
-            "  6. Optional prompt: prepare_ship\n",
+            "  4. README controls + objective; docs/SHIPPING.md\n",
+            "  5. Optional: package_demo for zip layout\n",
+        )
+        .to_string(),
+        WorkflowGoal::PackageDemo => concat!(
+            "Goal: package_demo — distributable folder/zip (non-Steam)\n",
+            "Skills to load:\n",
+            "  1. bevy-demo-game (playability gate)\n",
+            "  2. bevy-production\n",
+            "Steps:\n",
+            "  1. Do not package until GAME_DOD captures pass\n",
+            "  2. cargo build --release\n",
+            "  3. Copy binary + assets/ → dist/<name>/ (script when available)\n",
+            "  4. Run from dist/ so assets resolve; zip for sharing\n",
+            "  5. Steam is later (G5)—do not block on Steamworks\n",
+            "  6. Prompt: package_demo\n",
         )
         .to_string(),
         WorkflowGoal::AddSprite => concat!(
@@ -507,13 +596,13 @@ fn tool_defs() -> Value {
         },
         {
             "name": "bevy_workflow",
-            "description": "Production workflow router: given a goal (new_2d, new_3d, verify_scene, ship, add_sprite), return ordered steps naming which Grok skills to load and which grok-bevy MCP tools/CLI actions to use.",
+            "description": "Production workflow router: goal → ordered skills + MCP/CLI steps. Goals: new_2d, new_3d, complete_demo_2d, complete_demo_3d, verify_scene, ship, package_demo, add_sprite.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "goal": {
                         "type": "string",
-                        "description": "One of: new_2d, new_3d, verify_scene, ship, add_sprite (aliases: 2d, 3d, iterate_scene, prepare_ship, sprite)"
+                        "description": "new_2d | new_3d | complete_demo_2d | complete_demo_3d | verify_scene | ship | package_demo | add_sprite (aliases: build_demo_2d, demo_3d, iterate_scene, prepare_ship, zip, sprite, …)"
                     }
                 },
                 "required": ["goal"]
@@ -762,23 +851,28 @@ mod tests {
         assert!(s.contains("game-asset-core") || s.contains("assets/sprites"));
         assert!(s.contains("cargo build --release") || s.contains("Ship"));
         assert!(s.contains("start_2d_game") && s.contains("bevy_workflow"));
+        assert!(s.contains("GAME_DOD") || s.contains("bevy-demo-game"));
+        assert!(s.contains("complete_demo_2d") || s.contains("package_demo"));
     }
 
     #[test]
-    fn prompt_catalog_has_four_production_entry_points() {
+    fn prompt_catalog_has_production_and_demo_entry_points() {
+        assert!(prompt_catalog().len() >= 7);
+        for p in prompt_catalog() {
+            assert!(!p.description.is_empty(), "{} empty description", p.name);
+            assert!(!p.body.is_empty(), "{} empty body", p.name);
+        }
         let names: Vec<&str> = prompt_catalog().iter().map(|p| p.name).collect();
         for expected in [
             "start_2d_game",
             "start_3d_game",
+            "build_demo_2d",
+            "build_demo_3d",
             "iterate_scene",
             "prepare_ship",
+            "package_demo",
         ] {
             assert!(names.contains(&expected), "missing prompt {expected}");
-        }
-        assert_eq!(prompt_catalog().len(), 4);
-        for p in prompt_catalog() {
-            assert!(!p.description.is_empty(), "{} empty description", p.name);
-            assert!(!p.body.is_empty(), "{} empty body", p.name);
         }
     }
 
@@ -786,7 +880,7 @@ mod tests {
     fn prompts_list_and_get_drive_catalog() {
         let list = prompts_list_json();
         let arr = list.as_array().expect("array");
-        assert_eq!(arr.len(), 4);
+        assert_eq!(arr.len(), prompt_catalog().len());
         for item in arr {
             assert!(item.get("name").and_then(|n| n.as_str()).is_some());
             assert!(item
@@ -800,7 +894,11 @@ mod tests {
             .as_str()
             .unwrap();
         assert!(text.contains("bevy-2d-game"));
-        assert!(text.contains("scaffold") && text.contains("2d"));
+        assert!(text.contains("GAME_DOD") || text.contains("bevy-demo-game"));
+
+        let build = prompts_get_json("build_demo_2d").unwrap();
+        let text = build["messages"][0]["content"]["text"].as_str().unwrap();
+        assert!(text.contains("GAME_DOD") || text.contains("bevy-demo-game"));
 
         let three_d = prompts_get_json("start_3d_game").unwrap();
         let text = three_d["messages"][0]["content"]["text"]
@@ -818,6 +916,10 @@ mod tests {
         let text = ship["messages"][0]["content"]["text"].as_str().unwrap();
         assert!(text.contains("cargo build --release") || text.contains("release"));
 
+        let pkg = prompts_get_json("package_demo").unwrap();
+        let text = pkg["messages"][0]["content"]["text"].as_str().unwrap();
+        assert!(text.contains("assets") || text.contains("dist"));
+
         assert!(prompts_get_json("no_such_prompt").is_err());
     }
 
@@ -826,12 +928,20 @@ mod tests {
         let two_d = workflow_plan(WorkflowGoal::parse("new_2d").unwrap());
         assert!(two_d.contains("bevy-production"));
         assert!(two_d.contains("bevy-2d-game"));
-        assert!(two_d.contains("scaffold --kind 2d") || two_d.contains("--kind 2d"));
+        assert!(two_d.contains("bevy-demo-game"));
+        assert!(two_d.contains("scaffold --kind 2d") || two_d.contains("--kind 2d") || two_d.contains("demo-2d"));
         assert!(two_d.contains("bevy_launch_app") || two_d.contains("bevy_capture_viewport"));
+
+        let complete = workflow_plan(WorkflowGoal::parse("complete_demo_2d").unwrap());
+        assert!(complete.contains("GAME_DOD") || complete.contains("bevy-demo-game"));
+        assert!(complete.contains("Victory") || complete.contains("GameOver") || complete.contains("end"));
 
         let ship = workflow_plan(WorkflowGoal::parse("ship").unwrap());
         assert!(ship.contains("bevy-production"));
         assert!(ship.contains("cargo build --release"));
+
+        let package = workflow_plan(WorkflowGoal::parse("package_demo").unwrap());
+        assert!(package.contains("dist") || package.contains("assets"));
 
         let iterate = workflow_plan(WorkflowGoal::parse("verify_scene").unwrap());
         assert!(iterate.contains("bevy-agent-loop"));

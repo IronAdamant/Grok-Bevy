@@ -112,13 +112,9 @@ grok-bevy scaffold --kind demo --path ./brp-fixture   # integration fixture only
 - [Asset path conventions](ASSET_CONVENTIONS.md)  
 - [Shipping / release notes](SHIPPING.md)  
 
-## Roadmap (v0.2)
+## Roadmap
 
-- [x] Skill pack + production docs (this document)  
-- [x] Production 2D / 3D templates  
-- [x] `scaffold --kind 2d|3d|demo` from templates  
-- [x] MCP initialize instructions route to skills + scaffold kinds  
-- [x] MCP prompts: start_2d_game, start_3d_game, iterate_scene, prepare_ship  
-- [x] `bevy_workflow` tool (goal → ordered skills/tools steps)
+- **v0.2 (done):** skill pack, 2d/3d templates, scaffold kinds, MCP prompts/workflow  
+- **v0.3 (in progress):** short demos meeting [GAME_DOD.md](GAME_DOD.md); see [ROADMAP.md](ROADMAP.md) (G1–G6)
 
 Track status in [PROGRESS.md](../PROGRESS.md).

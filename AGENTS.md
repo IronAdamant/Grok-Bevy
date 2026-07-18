@@ -18,13 +18,13 @@ Help users build **production Bevy games** (playable, modular, shippable), not o
 | User intent | Load first |
 |-------------|------------|
 | Build / structure / ship a Bevy game | `bevy-production` |
-| 2D (sprites, tiles, top-down, platformer) | `bevy-production` + `bevy-2d-game` |
-| 3D (meshes, glTF, lighting) | `bevy-production` + `bevy-3d-game` |
+| Complete short **demo** (objective, win/lose) | `bevy-demo-game` + dimensional skill + `bevy-production` |
+| 2D (sprites, tiles, top-down, platformer) | `bevy-production` + `bevy-2d-game` (+ `bevy-demo-game` for full demos) |
+| 3D (meshes, glTF, lighting) | `bevy-production` + `bevy-3d-game` (+ `bevy-demo-game` for full demos) |
 | Live run, BRP, screenshot, MCP iterate | `bevy-agent-loop` |
 | Generate game art | Grok `game-asset-core` + matching specialist (`game-animation-frames`, `game-character-consistency`, `game-tilesets`, `game-ui-icons`) |
 
-Skills live under `.grok/skills/`. See [docs/PRODUCTION_GAMES.md](docs/PRODUCTION_GAMES.md).
-
+Skills live under `.grok/skills/`. See [docs/PRODUCTION_GAMES.md](docs/PRODUCTION_GAMES.md), [docs/GAME_DOD.md](docs/GAME_DOD.md), [docs/ROADMAP.md](docs/ROADMAP.md).
 ## Layout contract for real games
 
 Prefer (or create) this structure over a single `main.rs` scene:
@@ -32,7 +32,8 @@ Prefer (or create) this structure over a single `main.rs` scene:
 - `src/main.rs` — thin entry only  
 - `src/lib.rs` + `plugins/`, `states.rs`, `systems/`, `components.rs`, `resources.rs`  
 - `assets/{sprites|models,ui,audio}/`  
-- App states: `Loading` → `MainMenu` → `Playing` (+ `Paused`)  
+- App states: `Loading` → `MainMenu` → `Playing` (+ `Paused`, `Victory` / `GameOver` for demos)  
+- Short demos must meet **docs/GAME_DOD.md** (not movement-only)  
 - Feature-gated remote: `BrpExtrasPlugin` under `feature = "remote"`
 
 ## Anti-demo rules

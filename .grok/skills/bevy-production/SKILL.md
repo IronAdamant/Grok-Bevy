@@ -4,8 +4,8 @@ description: >
   Build production Bevy games (modular plugins, AppState, assets, ship checklist)
   for Bevy 0.19 — not one-file demos. Use when the user wants a real Bevy game,
   production architecture, shippable structure, "build a game", or /bevy-production.
-  Chain with bevy-2d-game or bevy-3d-game; for art load game-asset-core; for live
-  verify load bevy-agent-loop.
+  Chain with bevy-demo-game for short demos, bevy-2d-game or bevy-3d-game; for art
+  load game-asset-core; for live verify load bevy-agent-loop.
 metadata:
   short-description: "Production Bevy architecture (not demos)"
 ---
@@ -16,18 +16,22 @@ You are shipping a **maintainable game**, not a BRP cube demo.
 
 Pins: **Bevy 0.19**, **bevy_brp_extras 0.22.1**, BRP port **15702**, features `remote` / `capture`.
 
+**Short demos / “make it a real game”:** also load **`bevy-demo-game`** and obey repo **`docs/GAME_DOD.md`** (objective, challenge, win/lose—not only movement).
+
 ## Load order
 
 1. This skill (always for real games).
-2. **`bevy-2d-game`** or **`bevy-3d-game`** for the dimensional vertical slice.
-3. **`game-asset-core`** (+ specialist) whenever generating art.
-4. **`bevy-agent-loop`** when running, capturing, or debugging live.
+2. **`bevy-demo-game`** when building a complete short demo (recommended default for demos).
+3. **`bevy-2d-game`** or **`bevy-3d-game`** for the dimensional kit.
+4. **`game-asset-core`** (+ specialist) whenever generating art.
+5. **`bevy-agent-loop`** when running, capturing, or debugging live.
 
 ## Unprompted defaults
 
 | Situation | Do this without being asked |
 |-----------|----------------------------|
-| New game | Modular layout below; states Loading → MainMenu → Playing → Paused |
+| New game | Modular layout below; states Loading → MainMenu → Playing → Paused → Victory/GameOver as needed |
+| Short demo | Meet docs/GAME_DOD.md before calling done |
 | Entry point | Thin `main.rs`; logic in `lib` + plugins/systems |
 | Assets | `assets/sprites` or `models`, `ui`, `audio` — never only forever-procedural for a product |
 | Remote control | Feature-gate `BrpExtrasPlugin`; Name important entities |
@@ -40,8 +44,8 @@ Pins: **Bevy 0.19**, **bevy_brp_extras 0.22.1**, BRP port **15702**, features `r
 src/main.rs          # App::new + GamePlugin only
 src/lib.rs           # pub struct GamePlugin
 src/plugins/         # core (window/defaults), remote (cfg feature)
-src/states.rs        # Loading | MainMenu | Playing | Paused
-src/systems/         # loading, menu, gameplay (+ pause)
+src/states.rs        # Loading | MainMenu | Playing | Paused | Victory | GameOver (as needed)
+src/systems/         # loading, menu, gameplay, pause, end screens
 src/components.rs
 src/resources.rs
 assets/{sprites|models,ui,audio}/
@@ -69,13 +73,14 @@ Stop and restructure if the “game” is only:
 
 ## Ship checklist (before calling it done)
 
+- [ ] **GAME_DOD** satisfied (objective, challenge, win and/or lose—not movement only)  
 - [ ] Menu → play → pause (or quit) works  
 - [ ] `cargo run --features remote,capture` works for agent iteration  
 - [ ] `cargo build --release` succeeds  
 - [ ] Assets load from disk paths used in code  
 - [ ] Window title and package name match the game  
-- [ ] README: how to run, features, controls  
-- [ ] Live capture reviewed when MCP is available  
+- [ ] README: how to run, features, controls, **objective**  
+- [ ] Live capture reviewed when MCP is available (menu + play + end)  
 
 ## Art integration
 

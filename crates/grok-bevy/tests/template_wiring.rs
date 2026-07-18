@@ -60,7 +60,10 @@ fn licenses_and_docs_present() {
         "docs/PRODUCTION_GAMES.md",
         "docs/ASSET_CONVENTIONS.md",
         "docs/SHIPPING.md",
+        "docs/GAME_DOD.md",
+        "docs/ROADMAP.md",
         "AGENTS.md",
+        ".grok/skills/bevy-demo-game/SKILL.md",
     ] {
         let p = root.join(rel);
         assert!(p.is_file(), "missing {rel}");

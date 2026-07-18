@@ -79,3 +79,38 @@ See [docs/PRODUCTION_GAMES.md](docs/PRODUCTION_GAMES.md).
 - [x] Richer `initialize.instructions` (skills + scaffold kinds)
 - [x] MCP prompts: start_2d_game, start_3d_game, iterate_scene, prepare_ship
 - [x] `bevy_workflow` tool (goal → steps + skills + tools)
+
+---
+
+## v0.3 — game factory (alpha): demos that are real games
+
+See [docs/ROADMAP.md](docs/ROADMAP.md) and [docs/GAME_DOD.md](docs/GAME_DOD.md).  
+Steam is **later** (G5); non-Steam package is G4.
+
+### G1 — DoD + agent contract
+- [x] `docs/GAME_DOD.md` + `docs/ROADMAP.md`
+- [x] Skill `bevy-demo-game`
+- [x] Production / 2d / 3d / agent-loop skills reference DoD
+- [x] MCP prompts + `bevy_workflow` goals for complete demos / package
+
+### G2 — Templates are short games
+- [ ] `templates/game-2d` meets GAME_DOD (objective, win/lose, challenge, HUD)
+- [ ] `templates/game-3d` meets GAME_DOD
+- [ ] Structural tests + cargo check with `remote,capture`
+
+### G3 — In-repo dogfood
+- [ ] `games/demo-2d` workspace member
+- [ ] `games/demo-3d` workspace member
+- [ ] README default path: run dogfood demos
+
+### G4 — Package (non-Steam)
+- [ ] Package script/docs (binary + assets → dist/zip)
+- [ ] Skill `bevy-package` + workflow `package_demo`
+- [ ] CI check demos; optional release artifact
+
+### G5 — Steam path (later)
+- [ ] `docs/STEAM_PATH.md` + skill checklist
+- [ ] Optional steam feature stub
+
+### G6 — Install ergonomics
+- [ ] Reliable templates after install / embedded templates
