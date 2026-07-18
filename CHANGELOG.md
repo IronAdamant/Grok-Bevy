@@ -9,11 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Game factory roadmap (v0.3 / alpha):** agent path from short demos → package → later Steam
-  - `docs/GAME_DOD.md` — definition of done (objective, challenge, win/lose)
-  - `docs/ROADMAP.md` — phases G1–G6
-  - Skill `bevy-demo-game`; production/2d/3d/agent-loop skills reference DoD
-  - MCP prompts `build_demo_2d`, `build_demo_3d`, `package_demo`; workflow goals `complete_demo_2d|3d`, `package_demo`
+- **Game factory (v0.3 / alpha) G1–G4:**
+  - `docs/GAME_DOD.md`, `docs/ROADMAP.md`, `docs/PACKAGING.md`
+  - Skills `bevy-demo-game`, `bevy-package`; MCP demo/package workflows
+  - Templates `game-2d` / `game-3d` are short demos (collect + hazard + Victory/GameOver)
+  - In-repo dogfood: `games/demo-2d`, `games/demo-3d` (`cargo run -p demo_2d|demo_3d --features remote,capture`)
+  - `scripts/package-demo.sh` — release binary + `assets/` → `dist/` (+ zip)
 
 - **Production games (v0.2):** skill pack, templates, multi-kind scaffold, ship docs, MCP routing
   - `.grok/skills/bevy-production` / `bevy-2d-game` / `bevy-3d-game` / `bevy-agent-loop`

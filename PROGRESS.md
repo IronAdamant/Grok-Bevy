@@ -94,19 +94,19 @@ Steam is **later** (G5); non-Steam package is G4.
 - [x] MCP prompts + `bevy_workflow` goals for complete demos / package
 
 ### G2 — Templates are short games
-- [ ] `templates/game-2d` meets GAME_DOD (objective, win/lose, challenge, HUD)
-- [ ] `templates/game-3d` meets GAME_DOD
-- [ ] Structural tests + cargo check with `remote,capture`
+- [x] `templates/game-2d` meets GAME_DOD (objective, win/lose, challenge, HUD)
+- [x] `templates/game-3d` meets GAME_DOD
+- [x] Structural tests + cargo check with `remote,capture`
 
 ### G3 — In-repo dogfood
-- [ ] `games/demo-2d` workspace member
-- [ ] `games/demo-3d` workspace member
-- [ ] README default path: run dogfood demos
+- [x] `games/demo-2d` workspace member
+- [x] `games/demo-3d` workspace member
+- [x] README default path: run dogfood demos
 
 ### G4 — Package (non-Steam)
-- [ ] Package script/docs (binary + assets → dist/zip)
-- [ ] Skill `bevy-package` + workflow `package_demo`
-- [ ] CI check demos; optional release artifact
+- [x] Package script/docs (binary + assets → dist/zip)
+- [x] Skill `bevy-package` + workflow `package_demo`
+- [x] CI check demos; optional release artifact
 
 ### G5 — Steam path (later)
 - [ ] `docs/STEAM_PATH.md` + skill checklist

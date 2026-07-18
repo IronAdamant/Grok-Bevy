@@ -43,3 +43,5 @@ journal/
 # Screenshots written by BRP extras during local demos
 /screenshots/
 /captures/
+# Local package output
+/dist/

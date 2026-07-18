@@ -5,6 +5,8 @@ members = [
     "crates/grok-bevy-brp",
     "crates/grok-bevy",
     "templates/sample-app",
+    "games/demo-2d",
+    "games/demo-3d",
 ]
 default-members = [
     "crates/grok-bevy-env",
@@ -38,3 +40,13 @@ which = "7"
 # Pinned ecosystem versions (Bevy 0.19 track)
 bevy = { version = "0.19", default-features = true }
 bevy_brp_extras = "0.22.1"
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

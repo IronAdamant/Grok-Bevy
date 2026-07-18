@@ -24,9 +24,9 @@ Design, art direction, and design iteration are **user-owned**. Grok-Bevy owns *
 | Phase | Name | Outcome |
 |-------|------|---------|
 | **G1** | DoD + skills | Agents know when a demo is “done” |
-| **G2** | Templates → short games | `scaffold --kind 2d\|3d` ships DoD-complete kits |
-| **G3** | In-repo dogfood | `games/demo-2d`, `games/demo-3d` are golden path |
-| **G4** | Packaging | One-command/CI distributable zip |
+| **G2** | Templates → short games | **Done** — kits meet GAME_DOD |
+| **G3** | In-repo dogfood | **Done** — `games/demo-2d`, `games/demo-3d` |
+| **G4** | Packaging | **Done** — `scripts/package-demo.sh` + docs/skill |
 | **G5** | Steam path | Docs/skill only until packaging works |
 | **G6** | Install ergonomics | Templates/binary easy outside monorepo |
 

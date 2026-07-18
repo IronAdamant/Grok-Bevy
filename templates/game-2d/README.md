@@ -1,52 +1,46 @@
 # __WINDOW_TITLE__
 
-Production **2D** Bevy 0.19 vertical slice scaffolded by Grok-Bevy.
+**Short 2D Bevy demo** (Grok-Bevy GAME_DOD) — not a movement sandbox.
 
-## Play
+## Objective
+
+**Collect 3 gold orbs** while **avoiding the red hazard**.  
+Collect all orbs → **Victory**. Touch the hazard → **Game Over**.
+
+## Controls
+
+| Input | Action |
+|-------|--------|
+| Enter / Space | Start from menu; from end screens → menu |
+| WASD / arrows | Move |
+| Esc | Pause / resume (also resume with Enter) |
+| M | From pause → main menu |
+
+## Run (dev + agent capture)
 
 ```bash
 cargo run --features remote,capture
 ```
 
-| Input | Action |
-|-------|--------|
-| Enter / Space | Start from menu |
-| WASD / arrows | Move player |
-| Esc | Pause / unpause |
+BRP port **15702**. Package for sharing: see repo `scripts/package-demo.sh` and `docs/PACKAGING.md`.
 
 ## Features
 
 | Feature | Enables |
 |---------|---------|
-| `remote` | BRP HTTP on port **15702** (`bevy_brp_extras`) |
-| `capture` | Same as `remote` (screenshots / diagnostics) |
+| `remote` | BRP HTTP on port **15702** |
+| `capture` | Screenshots / diagnostics (implies remote) |
 
-## Asset paths
-
-Paths are relative to the `assets/` folder (Bevy `AssetServer`):
+## Assets
 
 | Path | Use |
 |------|-----|
-| `assets/sprites/` | Characters, props (`sprites/player.png`) |
-| `assets/ui/` | HUD / menu chrome |
-| `assets/audio/` | SFX / music |
+| `assets/sprites/player.png` | Player sprite (disk) |
+| `assets/ui/`, `assets/audio/` | Ready for chrome/SFX |
 
-See project `AGENTS.md` and upstream Grok-Bevy docs: asset conventions + shipping.
-
-## Ship
+## Ship / package
 
 ```bash
 cargo build --release
+# then copy binary + assets/ into a dist folder (see docs/PACKAGING.md)
 ```
-
-Binary: `target/release/__PACKAGE_NAME__`. See shipping notes in the Grok-Bevy repo (`docs/SHIPPING.md`) when developing from the monorepo.
-
-## Agent control
-
-```bash
-grok-bevy brp wait --port 15702
-grok-bevy brp query --port 15702
-grok-bevy brp screenshot --path captures/scene.png
-```
-
-Or use MCP: `bevy_launch_app`, `bevy_capture_viewport`, …

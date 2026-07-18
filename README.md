@@ -111,7 +111,28 @@ grok-bevy mcp-config
 
 Restart or reload MCP so the agent sees tools like `bevy_env_check`, `bevy_launch_app`, `bevy_capture_viewport`, and `bevy_workflow`.
 
-### 4. Create a small playable game
+### 4. Play the in-repo short demos (dogfood)
+
+These are **real short games** (objective, hazard, win/lose) — the default dogfood path:
+
+```bash
+# 2D: collect 3 orbs, avoid the red hazard
+cargo run -p demo_2d --features remote,capture
+
+# 3D: collect 3 cubes, avoid hazard / don't fall off
+cargo run -p demo_3d --features remote,capture
+```
+
+Package a playable folder/zip (binary + `assets/`):
+
+```bash
+./scripts/package-demo.sh demo_2d games/demo-2d
+./scripts/package-demo.sh demo_3d games/demo-3d
+```
+
+See [docs/GAME_DOD.md](docs/GAME_DOD.md), [docs/PACKAGING.md](docs/PACKAGING.md), [docs/ROADMAP.md](docs/ROADMAP.md).
+
+### 5. Or scaffold your own game
 
 ```bash
 grok-bevy scaffold --kind 2d --path ./my-first-game
@@ -119,13 +140,11 @@ cd my-first-game
 cargo run --features remote,capture
 ```
 
-- **2D** — good first path (sprites, simple movement).  
-- **3D** — `--kind 3d` for a lit ground + player capsule.  
-- **Demo only** — `--kind demo` for a static cube used to test remote control (not a full game template).
+- **2D / 3D** — GAME_DOD short demos (menu, collect, hazard, victory/game over).  
+- **`demo`** — static cube for BRP plumbing only (not a product game).
 
-Controls for the 2D/3D starters are in each game’s README (menu keys, WASD, pause).
-
-### 5. Let the agent look at the game
+Controls and objectives are in each game’s README.
+### 6. Let the agent look at the game
 
 With the game running (`remote,capture` features) and MCP connected, ask your assistant something like:
 

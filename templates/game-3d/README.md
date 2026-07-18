@@ -1,47 +1,32 @@
 # __WINDOW_TITLE__
 
-Production **3D** Bevy 0.19 vertical slice scaffolded by Grok-Bevy.
+**Short 3D Bevy demo** (Grok-Bevy GAME_DOD).
 
-## Play
+## Objective
+
+**Collect 3 cyan cubes** on the platform.  
+**Avoid the red hazard.** **Falling off** the platform ends the run.
+
+- All cubes → **Victory**  
+- Hazard or fall → **Game Over**
+
+## Controls
+
+| Input | Action |
+|-------|--------|
+| Enter / Space | Start; from end → menu |
+| WASD / arrows | Move on XZ |
+| Esc | Pause / resume (Enter also resumes) |
+| M | Pause → main menu |
+
+## Run
 
 ```bash
 cargo run --features remote,capture
 ```
 
-| Input | Action |
-|-------|--------|
-| Enter / Space | Start from menu |
-| WASD / arrows | Move player on the XZ plane |
-| Esc | Pause / unpause |
+BRP port **15702**. Packaging: repo `scripts/package-demo.sh`, `docs/PACKAGING.md`.
 
-## Features
+## Assets
 
-| Feature | Enables |
-|---------|---------|
-| `remote` | BRP HTTP on port **15702** |
-| `capture` | Screenshots / diagnostics (implies remote) |
-
-## Asset paths
-
-| Path | Use |
-|------|-----|
-| `assets/models/` | Meshes, glTF, material textures (`models/ground_tint.png`) |
-| `assets/ui/` | HUD / menu chrome |
-| `assets/audio/` | SFX / music |
-| `assets/sprites/` | Optional 2D overlays |
-
-## Ship
-
-```bash
-cargo build --release
-```
-
-Binary: `target/release/__PACKAGE_NAME__`. See Grok-Bevy `docs/SHIPPING.md` for packaging notes.
-
-## Agent control
-
-```bash
-grok-bevy brp wait --port 15702
-grok-bevy brp query --port 15702
-grok-bevy brp screenshot --path captures/scene.png
-```
+`assets/models/ground_tint.png` (disk). `assets/ui/`, `assets/audio/` ready for more content.
