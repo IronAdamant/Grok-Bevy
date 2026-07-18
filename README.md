@@ -1,227 +1,252 @@
 # Grok-Bevy
 
-**Agent-native [Bevy](https://bevy.org) tooling for [Grok Build](https://x.ai) and other MCP-compatible coding agents — from host readiness to live scene control to production game structure.**
+**Build and control [Bevy](https://bevy.org) games with AI coding agents** — especially [Grok Build](https://x.ai), and any tool that speaks **MCP (Model Context Protocol)**.
 
-Grok-Bevy prepares a machine for Bevy development, scaffolds BRP-enabled apps, ships **Grok skills** for building real games, and exposes an MCP server so agents can **launch, query, mutate, and screenshot** live Bevy scenes. It builds on the mature [`bevy_brp_mcp`](https://github.com/natepiano/bevy_brp) / [`bevy_brp_extras`](https://crates.io/crates/bevy_brp_extras) stack instead of reimplementing the Bevy Remote Protocol.
+Grok-Bevy is an open-source companion for people who want help from an AI assistant while making **2D or 3D games in Rust** with the Bevy game engine. It checks that your computer is ready, can start a small playable game for you, and gives your AI agent **live eyes and hands** on a running game: launch the app, inspect the scene, change things, and take screenshots.
 
-| Layer | Role |
-|-------|------|
-| `grok-bevy` CLI | Doctor, scaffold, BRP helpers, MCP entrypoint |
-| `grok-bevy` MCP | Focused agent tools (env, query/mutate, capture-as-image) |
-| **Repo skills** (`.grok/skills/`) | Production Bevy playbooks (2D/3D, architecture, agent loop) |
-| `bevy_brp_mcp` | Full BRP tool surface (optional, recommended) |
-| `templates/game-2d` / `game-3d` | Production playable vertical slices |
-| `templates/sample-app` | BRP **integration fixture** (`scaffold --kind demo`) |
+> **Public demo.** This repo is a working demonstration of agent-native Bevy tooling. Use it to learn the workflow, dogfood it, and adapt it for your own projects.
 
-## Production games (v0.2)
+---
 
-**Skills define HOW. Scaffold defines WHERE. MCP verifies WHAT.**
+## Who this is for
 
-| Skill | Purpose |
-|-------|---------|
-| `bevy-production` | Modular plugins, AppState, assets, ship checklist |
-| `bevy-2d-game` | Sprites, tilemaps, orthographic play |
-| `bevy-3d-game` | Lighting, glTF path, 3D camera |
-| `bevy-agent-loop` | Doctor → launch → BRP → capture → iterate |
+| You might be… | Grok-Bevy helps you… |
+|---------------|----------------------|
+| New to Bevy, using **Grok Build** or another AI coding assistant | Get a ready machine + a real starter game without memorizing every setup step |
+| Building a game with an **LLM** (Grok, Claude, GPT, local models, etc.) | Give the agent tools so it can *see* and *control* the live game, not only edit code |
+| Looking for an **MCP server for Bevy** | Plug into Grok Build, Cursor, Claude Code, Continue, Cline, Windsurf, or other MCP clients |
+| Prototyping a **2D platformer / top-down game** or a small **3D** scene | Scaffold a playable vertical slice (menu → play → move) with remote control hooks |
 
-For art, also load Grok’s bundled **`game-asset-core`** (and specialists). Drop outputs under `assets/sprites`, `assets/models`, `assets/ui`, or `assets/audio` — see [docs/ASSET_CONVENTIONS.md](docs/ASSET_CONVENTIONS.md). Shipping: [docs/SHIPPING.md](docs/SHIPPING.md).
+You do **not** need to be a Rust expert to start. You will need a normal developer setup (Rust installed, ability to run terminal commands). The `doctor` command explains what’s missing in plain language.
 
-Full map and anti-demo rules: **[docs/PRODUCTION_GAMES.md](docs/PRODUCTION_GAMES.md)**.
+---
 
-### Scaffold a production game
+## What you get in plain English
+
+1. **“Is my PC ready for Bevy?”** — `grok-bevy doctor` checks Rust and your OS, then suggests fixes.  
+2. **“Start a game project for me.”** — Scaffold a **2D** or **3D** starter (or a simple demo cube for testing).  
+3. **“Let my AI play with the running game.”** — An **MCP server** so the agent can query the world, tweak values, and **capture the viewport as an image**.  
+4. **“How should the AI build a real game?”** — Built-in **Grok skills** (playbooks) for production structure, not one-file demos.
+
+**Skills define how to build. Scaffold defines where files go. MCP verifies what is on screen.**
+
+---
+
+## Why MCP + Bevy matters for AI game development
+
+Most AI coding chats only see source files. Game work also needs:
+
+- Does it **compile and run** on this machine?  
+- What does the **player actually see**?  
+- Can the agent **change a transform** and re-check without guessing?
+
+Grok-Bevy wires that loop using the **Bevy Remote Protocol (BRP)** and optional [bevy_brp_mcp](https://github.com/natepiano/bevy_brp) / [bevy_brp_extras](https://crates.io/crates/bevy_brp_extras). Your agent (Grok Build or another MCP-compatible LLM client) can treat a live Bevy app like a controllable environment: **launch → query → mutate → screenshot → fix → repeat**.
+
+That makes this project useful if you are searching for phrases like:
+
+- *Bevy MCP server* / *MCP for Bevy game engine*  
+- *AI coding agent for game development*  
+- *Grok Build Bevy* / *LLM-assisted Rust game dev*  
+- *screenshot the Bevy window for an AI assistant*  
+- *scaffold a 2D or 3D Bevy game with remote control*
+
+---
+
+## Quick start (about 10 minutes)
+
+### Prerequisites
+
+- A computer that can run games (a normal GPU + window is best for screenshots)  
+- [Rust](https://rustup.rs) (`rustc` + `cargo`)  
+- Optional but recommended: [Grok Build](https://x.ai) or any **MCP client** for AI agents  
+
+### 1. Install the CLI
 
 ```bash
-grok-bevy scaffold --kind 2d --path ./my-2d-game
-grok-bevy scaffold --kind 3d --path ./my-3d-game
-# BRP cube fixture only:
-grok-bevy scaffold --kind demo --path ./brp-fixture
-```
-
-Each production scaffold includes menu→play states, movement, disk assets, `AGENTS.md`, and `remote`/`capture` features.
-
-## Compatibility
-
-| Bevy | bevy_brp_mcp | bevy_brp_extras | Grok-Bevy |
-|------|--------------|-----------------|-----------|
-| **0.19** | **0.22.1** | **0.22.1** | 0.1.x |
-
-Bevy is a **Cargo dependency**, not a global binary. Readiness means: can this host compile and run Bevy apps?
-
-## Fast start (a few minutes)
-
-### 1. Check your environment
-
-```bash
+git clone https://github.com/IronAdamant/Grok-Bevy.git
+cd Grok-Bevy
 cargo install --path crates/grok-bevy
-# or from a clone:
-cargo run -p grok-bevy -- doctor
 ```
 
-Example healthy output includes your **OS family**, `rustc` / `cargo` versions, and `READY`. If something is missing, the report prints **OS-specific install steps** (Windows MSVC / Linux packages / macOS Xcode CLT).
-
-Optional deeper probe (downloads and compiles a tiny Bevy crate — slow):
+### 2. Check your machine
 
 ```bash
-grok-bevy doctor --compile-probe
+grok-bevy doctor
 ```
 
-### 2. Register the MCP server with Grok Build
+You want a **READY** report. If something is missing, follow the printed install tips for Windows, macOS, or Linux.
 
-**Option A — config.toml** (`~/.grok/config.toml` or project `.grok/config.toml`):
+### 3. Connect the MCP server (so your AI can use it)
+
+**Grok Build** — add to `~/.grok/config.toml` (or run `grok mcp add …`):
 
 ```toml
 [mcp_servers.grok-bevy]
-command = "grok-bevy"          # or absolute path from `cargo build -p grok-bevy`
+command = "grok-bevy"   # or the full path from `which grok-bevy`
 args = ["mcp"]
 enabled = true
 startup_timeout_sec = 30
+```
 
-# Recommended: full BRP tool surface from upstream
+Optional richer Bevy control (hierarchy, watches, input injection):
+
+```bash
+cargo install bevy_brp_mcp --locked
+```
+
+```toml
 [mcp_servers.bevy-brp]
 command = "bevy_brp_mcp"
 args = []
 enabled = true
 ```
 
-**Option B — CLI:**
-
-```bash
-# After: cargo install --path crates/grok-bevy
-grok mcp add grok-bevy -- grok-bevy mcp
-
-# Full-featured upstream server
-cargo install bevy_brp_mcp --locked
-grok mcp add bevy-brp -- bevy_brp_mcp
-```
-
-Print snippets for your built binary:
+Print ready-made config:
 
 ```bash
 grok-bevy mcp-config
 ```
 
-### 3. Run a BRP-enabled sample
+**Other MCP clients** (Cursor, Claude Code, Continue, Cline, etc.): register a stdio MCP server that runs `grok-bevy mcp` the same way you register any local MCP tool.
+
+Restart or reload MCP so the agent sees tools like `bevy_env_check`, `bevy_launch_app`, `bevy_capture_viewport`, and `bevy_workflow`.
+
+### 4. Create a small playable game
 
 ```bash
-cargo run -p grok_bevy_sample --features remote,capture
-```
-
-In another terminal:
-
-```bash
-grok-bevy brp wait --port 15702
-grok-bevy brp query --port 15702
-grok-bevy brp screenshot --path captures/scene.png --with-image-meta
-```
-
-Or from a Grok Build session: use MCP tools `bevy_brp_query`, `bevy_brp_mutate`, `bevy_capture_viewport`, or the richer `bevy_brp_mcp` tools (`brp_launch`, `world_query`, `brp_extras_screenshot`, …).
-
-### 4. Scaffold a production game
-
-```bash
-grok-bevy scaffold --kind 2d --path ./my-bevy-game
-cd my-bevy-game
+grok-bevy scaffold --kind 2d --path ./my-first-game
+cd my-first-game
 cargo run --features remote,capture
 ```
 
-Use `--kind 3d` for the 3D slice, or `--kind demo` for the static BRP fixture.
-## Architecture
+- **2D** — good first path (sprites, simple movement).  
+- **3D** — `--kind 3d` for a lit ground + player capsule.  
+- **Demo only** — `--kind demo` for a static cube used to test remote control (not a full game template).
+
+Controls for the 2D/3D starters are in each game’s README (menu keys, WASD, pause).
+
+### 5. Let the agent look at the game
+
+With the game running (`remote,capture` features) and MCP connected, ask your assistant something like:
+
+> Check Bevy readiness, wait for the game on port 15702, query the scene, and capture a screenshot of the window.
+
+Or: use the MCP prompt **`start_2d_game`** / **`start_3d_game`**, or the **`bevy_workflow`** tool with goal `new_2d`, `new_3d`, `verify_scene`, or `ship`.
+
+More detail: [docs/FAST_START.md](docs/FAST_START.md) · [docs/PRODUCTION_GAMES.md](docs/PRODUCTION_GAMES.md)
+
+---
+
+## What the AI can do (MCP tools, human labels)
+
+| Tool (name) | Everyday meaning |
+|-------------|------------------|
+| `bevy_env_check` | Is this computer ready to build Bevy games? |
+| `bevy_launch_app` | Start my game with remote control turned on |
+| `bevy_brp_query` | What entities/components exist right now? |
+| `bevy_brp_mutate` | Change a value on a live object (e.g. position) |
+| `bevy_capture_viewport` | **Screenshot the game window** for the agent to “see” |
+| `bevy_workflow` | Step-by-step plan: which skills + tools for a goal |
+| `bevy_brp_mcp_status` | Is the optional full Bevy BRP MCP installed? |
+
+**MCP prompts** (shortcuts for agents): `start_2d_game`, `start_3d_game`, `iterate_scene`, `prepare_ship`.
+
+---
+
+## Skills (playbooks for building real games)
+
+These live in `.grok/skills/` so Grok Build (and similar) can load them automatically:
+
+| Skill | When it helps |
+|-------|----------------|
+| `bevy-production` | Project layout, states, shipping mindset |
+| `bevy-2d-game` | 2D camera, sprites, movement |
+| `bevy-3d-game` | 3D camera, lights, meshes |
+| `bevy-agent-loop` | Live run → screenshot → fix loop |
+
+For **game art**, pair with Grok’s image skills (e.g. `game-asset-core`) and drop files under `assets/sprites`, `assets/models`, `assets/ui`, or `assets/audio`. See [docs/ASSET_CONVENTIONS.md](docs/ASSET_CONVENTIONS.md) and [docs/SHIPPING.md](docs/SHIPPING.md).
+
+---
+
+## Compatibility
+
+| Piece | Version |
+|-------|---------|
+| Bevy game engine | **0.19** |
+| bevy_brp_mcp / bevy_brp_extras | **0.22.1** |
+| Grok-Bevy | **0.1.x** (v0.2 features on `main`) |
+
+Bevy is a **Cargo** dependency of your game project—not a separate installer. “Ready” means this machine can **compile and run** Bevy apps.
+
+---
+
+## Project map (for the curious)
 
 ```
-┌─────────────────┐     MCP stdio      ┌──────────────────┐
-│  Grok Build /   │ ◄────────────────► │  grok-bevy mcp   │
-│  other agents   │                    │  (+ bevy_brp_mcp)│
-└─────────────────┘                    └────────┬─────────┘
-                                                │ HTTP JSON-RPC (BRP)
-                                                ▼
-                                       ┌──────────────────┐
-                                       │ Bevy app +       │
-                                       │ RemotePlugin /   │
-                                       │ BrpExtrasPlugin  │
-                                       └──────────────────┘
+Your AI (Grok Build / Claude / Cursor / …)
+        │  MCP (stdio)
+        ▼
+   grok-bevy mcp  (+ optional bevy_brp_mcp)
+        │  Bevy Remote Protocol (HTTP)
+        ▼
+   Your Bevy game (features: remote, capture)
 ```
 
-| Crate | Description |
-|-------|-------------|
-| [`grok-bevy-env`](crates/grok-bevy-env) | Cross-platform readiness checks (testable `CommandRunner`) |
-| [`grok-bevy-brp`](crates/grok-bevy-brp) | BRP HTTP client, named targets, PNG → MCP image adapter |
-| [`grok-bevy`](crates/grok-bevy) | CLI + MCP server |
-| [`templates/game-2d`](templates/game-2d) / [`game-3d`](templates/game-3d) | Production playable slices (states, movement, disk assets) |
-| [`templates/sample-app`](templates/sample-app) | BRP demo fixture + headless binary |
+| Piece | Role |
+|-------|------|
+| `grok-bevy` CLI | doctor, scaffold, BRP helpers, MCP entry |
+| MCP server | agent tools + prompts + workflow router |
+| `templates/game-2d`, `game-3d` | playable starters |
+| `templates/sample-app` | remote-control test fixture (cube) |
+| `.grok/skills/` | production playbooks |
 
-## MCP tools (grok-bevy)
+---
 
-| Tool | Purpose |
-|------|---------|
-| `bevy_env_check` | OS + Rust/Cargo readiness report |
-| `bevy_register_target` / `bevy_list_targets` | Named multi-instance targets |
-| `bevy_brp_discover` | `rpc.discover` |
-| `bevy_brp_query` | `world.query` |
-| `bevy_brp_mutate` | `world.mutate_components` |
-| `bevy_brp_call` | Any BRP method (including `brp_extras/*`) |
-| `bevy_capture_viewport` | Screenshot → **MCP image** content |
-| `bevy_launch_app` | `cargo run` a manifest with features |
-| `bevy_brp_mcp_status` | Detect/install guidance for upstream MCP |
-| `bevy_workflow` | Goal → ordered skills + MCP/CLI steps (`new_2d`, `new_3d`, `verify_scene`, `ship`, `add_sprite`) |
-
-### MCP prompts
-
-| Prompt | Steers agent to… |
-|--------|------------------|
-| `start_2d_game` | `bevy-production` + `bevy-2d-game`, scaffold `--kind 2d` |
-| `start_3d_game` | `bevy-production` + `bevy-3d-game`, scaffold `--kind 3d` |
-| `iterate_scene` | `bevy-agent-loop`, launch/query/capture cycle |
-| `prepare_ship` | Release checklist (`cargo build --release`, assets) |
-
-For hierarchy ops, diagnostics, watches, keyboard/mouse, and rich launch discovery, use **`bevy_brp_mcp`** (same BRP port).
-
-## Feature flags (sample app)
-
-```toml
-[features]
-remote  = ["dep:bevy_brp_extras", "bevy/bevy_remote"]
-capture = ["remote"]
-```
-
-```rust
-#[cfg(feature = "remote")]
-app.add_plugins(bevy_brp_extras::BrpExtrasPlugin::default());
-```
-
-`BrpExtrasPlugin` wires `RemotePlugin` + `RemoteHttpPlugin` (default port **15702**) and methods such as `brp_extras/screenshot` and `brp_extras/get_diagnostics`.
-
-## CLI reference
+## CLI cheat sheet
 
 ```text
 grok-bevy doctor [--compile-probe] [--json]
-grok-bevy mcp [--delegate-brp-mcp]
-grok-bevy scaffold --path DIR --kind 2d|3d|demo [--name CRATE] [--force]
+grok-bevy mcp
+grok-bevy scaffold --kind 2d|3d|demo --path DIR [--name NAME]
 grok-bevy brp discover|query|mutate|call|screenshot|wait
-grok-bevy compat
 grok-bevy mcp-config
+grok-bevy compat
 ```
 
-## Troubleshooting
+---
 
-See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for common issues:
+## Troubleshooting (short list)
 
-- Rust/Cargo missing → rustup + OS build tools  
-- BRP connection refused → app not run with `remote` / wrong port  
-- Black screenshots → minimized/occluded window (known platform limitation)  
-- Slow Bevy compiles → use `opt-level` workspace profiles  
+Full guide: [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
+
+- **Doctor not READY** — install Rust via rustup; follow OS tips (Xcode CLT / MSVC / Linux packages).  
+- **Agent can’t connect** — game must run with `--features remote,capture`; default port **15702**.  
+- **Black screenshot** — keep the game window visible (not minimized).  
+- **First compile is slow** — normal for Bevy; later builds are faster.  
+
+---
 
 ## License
 
-Dual-licensed under **MIT** OR **Apache-2.0**, at your option — matching [Bevy](https://github.com/bevyengine/bevy).
+**MIT OR Apache-2.0** (same dual license style as Bevy).
 
-- [LICENSE-MIT](LICENSE-MIT)
-- [LICENSE-APACHE](LICENSE-APACHE)
+- [LICENSE-MIT](LICENSE-MIT)  
+- [LICENSE-APACHE](LICENSE-APACHE)  
 
 ## Credits
 
-- [Bevy](https://bevy.org) — engine and Remote Protocol  
-- [natepiano/bevy_brp](https://github.com/natepiano/bevy_brp) — `bevy_brp_mcp` + `bevy_brp_extras`  
+- [Bevy](https://bevy.org) — game engine and Remote Protocol  
+- [natepiano/bevy_brp](https://github.com/natepiano/bevy_brp) — `bevy_brp_mcp` and `bevy_brp_extras`  
+- [Grok Build](https://x.ai) / xAI — agent-first coding environment this project targets first  
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Please keep the first public surface focused and well-tested.
+See [CONTRIBUTING.md](CONTRIBUTING.md). This public demo favors a **small, tested surface**: readiness, scaffold, MCP/BRP control, and clear agent docs.
+
+---
+
+### Keywords for discovery (humans and agents)
+
+Grok-Bevy · Grok Build · MCP server · Model Context Protocol · Bevy game engine · Bevy Remote Protocol · BRP · AI game development · LLM coding agent · Rust game engine · 2D game scaffold · 3D game scaffold · agent screenshots · viewport capture · open source Bevy tooling  
+
+If you found this while looking for an **AI-friendly Bevy workflow**, start with `doctor` → register `grok-bevy mcp` → `scaffold --kind 2d` → ask your agent to capture the window.
