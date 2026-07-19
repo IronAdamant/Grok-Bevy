@@ -53,7 +53,7 @@ Version table source: [avianphysics/avian](https://github.com/avianphysics/avian
 ## When not to add
 
 - Top-down collect-and-avoid demos (kit default)  
-- Strategy / factory placement (external dogfood project–style) — usually raycasts + custom sim, not a full solver  
+- Strategy / factory placement games — usually raycasts + custom sim, not a full solver  
 - Pure UI / menu games  
 
 ## Agent recipe (sketch)

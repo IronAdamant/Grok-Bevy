@@ -45,3 +45,14 @@ journal/
 /captures/
 # Local package output
 /dist/
+
+# Private external-game dogfood (may become commercial / portfolio later — keep out of OSS)
+docs/AGENT_DOGFOOD_REPORT_*
+docs/*IRON*
+docs/*FEUD*
+docs/*external_game*
+.local/dogfood/
+private/dogfood/
+**/external_game/**
+**/external dogfood project/**
+*EXTERNAL_GAME*

@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **external dogfood project dogfood fixes (Wave A/B):**
+- **External greenfield dogfood fixes (Wave A/B):**
   - Template/demo `AssetPlugin` dual-mode: debug `CARGO_MANIFEST_DIR/assets`, release relative `assets/`, env `BEVY_ASSET_ROOT`
   - Loading fail-forward timeout (~12s) so stuck asset loads do not block BRP forever
   - MCP **`bevy_wait_brp`**; **`bevy_launch_app`** non-blocking by default (`wait_secs=0`), sets package cwd
