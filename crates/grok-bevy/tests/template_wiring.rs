@@ -62,6 +62,7 @@ fn licenses_and_docs_present() {
         "docs/SHIPPING.md",
         "docs/GAME_DOD.md",
         "docs/ROADMAP.md",
+        "docs/PHYSICS.md",
         "AGENTS.md",
         ".grok/skills/bevy-demo-game/SKILL.md",
     ] {
@@ -77,6 +78,33 @@ fn licenses_and_docs_present() {
     let assets = fs::read_to_string(root.join("docs/ASSET_CONVENTIONS.md")).unwrap();
     assert!(assets.contains("assets/sprites"));
     assert!(assets.contains("assets/models"));
+    assert!(assets.contains("CARGO_MANIFEST_DIR") || assets.contains("AssetPlugin"));
+    let physics = fs::read_to_string(root.join("docs/PHYSICS.md")).unwrap();
+    assert!(physics.contains("avian2d") && physics.contains("avian3d"));
+    assert!(physics.contains("0.7"));
+    assert!(
+        physics.contains("physics") && physics.contains("feature"),
+        "PHYSICS.md must document kit physics feature"
+    );
+    let trouble = fs::read_to_string(root.join("docs/TROUBLESHOOTING.md")).unwrap();
+    assert!(trouble.contains("brp_extras/screenshot"));
+    assert!(trouble.contains("bevy_wait_brp") || trouble.contains("wait_secs"));
+    assert!(
+        trouble.contains("embedded") || trouble.contains("G6"),
+        "TROUBLESHOOTING must document embedded templates (G6)"
+    );
+    let progress = fs::read_to_string(root.join("PROGRESS.md")).unwrap();
+    assert!(
+        progress.contains("embedded templates")
+            && progress.lines().any(|l| l.contains("G6") || l.contains("embedded")),
+        "PROGRESS should mark G6 embed work"
+    );
+    // G6 checklist item should be checked
+    assert!(
+        progress.contains("- [x] Reliable templates after install")
+            || progress.contains("[x] Reliable templates"),
+        "PROGRESS G6 embed item must be checked"
+    );
 }
 
 #[test]
@@ -90,8 +118,23 @@ fn production_2d_template_is_playable_slice() {
     assert!(states.contains("MainMenu") && states.contains("Playing"));
     let loading = fs::read_to_string(root.join("src/systems/loading.rs")).unwrap();
     assert!(loading.contains("sprites/player.png"));
+    assert!(loading.contains("LoadingTimeout") || loading.contains("timeout"));
+    let core = fs::read_to_string(root.join("src/plugins/core.rs")).unwrap();
+    assert!(core.contains("AssetPlugin"));
+    assert!(core.contains("CARGO_MANIFEST_DIR") || core.contains("asset_root"));
     let cargo = fs::read_to_string(root.join("Cargo.toml")).unwrap();
     assert!(cargo.contains("remote") && cargo.contains("capture"));
+    assert!(cargo.contains("avian2d") && cargo.contains("physics"));
+    assert!(
+        cargo.contains("default = []"),
+        "physics must not be default"
+    );
+    assert!(
+        !cargo.contains("default = [\"physics\"]"),
+        "physics must not be in default features"
+    );
+    let lib = fs::read_to_string(root.join("src/lib.rs")).unwrap();
+    assert!(lib.contains("cfg(feature = \"physics\")"));
 }
 
 #[test]
@@ -103,6 +146,15 @@ fn production_3d_template_is_playable_slice() {
     assert!(gameplay.contains("Camera3d"));
     let loading = fs::read_to_string(root.join("src/systems/loading.rs")).unwrap();
     assert!(loading.contains("models/ground_tint.png"));
+    assert!(loading.contains("LoadingTimeout") || loading.contains("timeout"));
+    let core = fs::read_to_string(root.join("src/plugins/core.rs")).unwrap();
+    assert!(core.contains("AssetPlugin"));
+    assert!(core.contains("CARGO_MANIFEST_DIR") || core.contains("asset_root"));
+    let cargo = fs::read_to_string(root.join("Cargo.toml")).unwrap();
+    assert!(cargo.contains("avian3d") && cargo.contains("physics"));
+    assert!(cargo.contains("default = []"));
+    let lib = fs::read_to_string(root.join("src/lib.rs")).unwrap();
+    assert!(lib.contains("cfg(feature = \"physics\")"));
 }
 
 /// GAME_DOD: short demos need objective, challenge, win/lose — not movement-only.

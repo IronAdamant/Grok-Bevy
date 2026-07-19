@@ -60,7 +60,17 @@ See `references/layout.md` for file responsibilities.
 3. **Resources for shared data** (score, settings); components for entity data.
 4. **Name entities** (`Name::new(...)`) so BRP queries are readable.
 5. **Reflect** any component you expect to mutate over BRP in advanced flows.
-6. Prefer **Bevy built-ins** first; add crates (physics, tiles, audio libs) only with a clear need and version compatibility with 0.19.
+6. Prefer **Bevy built-ins** first; add crates only with a clear need and **0.19-compatible** pins:
+
+| Need | Pin (Bevy 0.19) |
+|------|-----------------|
+| Physics 2D | `avian2d` **0.7** |
+| Physics 3D | `avian3d` **0.7** |
+| Tilemaps | maintained 0.19-compatible crate when required |
+
+See `docs/PHYSICS.md`. Default kits stay transform-based (no physics dep).
+
+7. **Query disjointness (B0001):** overlapping `Query<&mut T>` systems panic at runtime. Use marker components, `Without`, `ParamSet`, or split systems when growing the scaffold.
 
 ## Anti-demo (fail criteria)
 

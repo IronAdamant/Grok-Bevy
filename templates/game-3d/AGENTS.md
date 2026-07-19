@@ -16,6 +16,15 @@
 Thin `main.rs`; logic in plugins/systems.  
 Assets: `assets/models`, `assets/ui`, `assets/audio` (optional `sprites/`).
 
+## Asset root
+
+Debug: `AssetPlugin` uses `CARGO_MANIFEST_DIR/assets` (safe when running `target/debug/*`).  
+Release: relative `assets/` (package beside binary). Override: `BEVY_ASSET_ROOT`.
+
+## ECS queries (B0001)
+
+Overlapping `Query<&mut T>` systems panic at runtime (**B0001**). Prefer marker components, `Without`, `ParamSet`, or split systems.
+
 ## States
 
 `Loading` → `MainMenu` → `Playing` / `Paused`.

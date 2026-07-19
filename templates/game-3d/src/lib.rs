@@ -20,8 +20,13 @@ pub struct GamePlugin;
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((CorePlugin, RemotePluginGate))
-            .init_state::<AppState>()
+        app.add_plugins((CorePlugin, RemotePluginGate));
+        // Opt-in Avian 3D (feature `physics`). Default gameplay stays transform-based.
+        #[cfg(feature = "physics")]
+        {
+            app.add_plugins(avian3d::PhysicsPlugins::default());
+        }
+        app.init_state::<AppState>()
             .add_systems(OnEnter(AppState::Loading), loading_setup)
             .add_systems(
                 Update,

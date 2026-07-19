@@ -9,8 +9,11 @@ description = "Grok-Bevy 3D short demo (GAME_DOD: collect cubes, avoid hazard)"
 [dependencies]
 bevy = { workspace = true, features = ["png"] }
 bevy_brp_extras = { workspace = true, optional = true }
+avian3d = { version = "0.7", optional = true }
 
 [features]
 default = []
 remote = ["dep:bevy_brp_extras", "bevy/bevy_remote"]
 capture = ["remote"]
+# Optional physics solver (Avian). Default stays transform-based.
+physics = ["dep:avian3d"]

@@ -57,6 +57,30 @@ Agents screenshot the window. Ensure:
 - glTF: place under `assets/models/…` and load with `SceneRoot` / scene spawner patterns for Bevy 0.19.  
 - Textures: `assets/models/` or `assets/sprites/` as appropriate.
 
+## Physics
+
+Start **without** a physics crate (transform XZ movement + distance checks + optional fall-off). Enough for short GAME_DOD slices.
+
+When gravity, solid ground colliders, or rigid bodies are needed:
+
+| Pin | Version | Feature |
+|-----|---------|---------|
+| `avian3d` | **0.7** (Bevy **0.19**) | `physics` on scaffolded kits |
+
+```bash
+cargo run --features remote,capture,physics
+```
+
+```toml
+avian3d = { version = "0.7", optional = true }
+physics = ["dep:avian3d"]
+```
+
+- Ground plane collider + dynamic capsule/cuboid player is a good first pattern.  
+- Strategy / factory camera games usually should **not** enable full physics by default.  
+- Own Transform either via physics or manual movement; avoid double writes (**B0001**).  
+- Full notes: repo `docs/PHYSICS.md`.
+
 ## Anti-patterns
 
 - Static cube with no input (that is the **demo fixture**, not a game)  
@@ -67,3 +91,4 @@ Agents screenshot the window. Ensure:
 ## References
 
 - `references/3d-slice.md` — light + camera + movement sketch  
+

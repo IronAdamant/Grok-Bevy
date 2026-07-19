@@ -113,4 +113,5 @@ Steam is **later** (G5); non-Steam package is G4.
 - [ ] Optional steam feature stub
 
 ### G6 — Install ergonomics
-- [ ] Reliable templates after install / embedded templates
+- [x] Reliable templates after install / embedded templates (`include_dir` in `grok-bevy`; fallback extract to cache when monorepo path missing)
+- [x] Optional kit feature `physics` (avian2d/avian3d **0.7**); default kits stay transform-based

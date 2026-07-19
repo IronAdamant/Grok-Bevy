@@ -58,6 +58,19 @@ Discover methods with `grok-bevy brp discover` or MCP `bevy_brp_discover`. For s
 - `path` uses Bevy `GetPath` syntax (e.g. `translation.x`).  
 - Component must be `Reflect` and registered.
 
+## Common BRP method names
+
+Use **exact** method strings (do not invent prefixes like `bevy_brp_extras/…`). Discover live with `bevy_brp_discover` / `grok-bevy brp discover`.
+
+| Method | Purpose |
+|--------|---------|
+| `rpc.discover` | List registered methods |
+| `world.query` | Read entities/components |
+| `world.mutate_components` | Write a component field path |
+| `brp_extras/screenshot` | Write a PNG to a filesystem path |
+| `brp_extras/get_diagnostics` | Diagnostics (when extras enabled) |
+| `brp_extras/send_keys` | Keyboard injection (if registered; prefer `bevy_brp_mcp` for rich input) |
+
 ## Screenshots / visual capture
 
 ### `brp_extras/screenshot` method not found
@@ -97,13 +110,59 @@ grok mcp add bevy-brp -- bevy_brp_mcp
 
 Or: `grok-bevy mcp --delegate-brp-mcp` (requires `bevy_brp_mcp` on `PATH`).
 
+## Launch / agent loop
+
+### MCP `bevy_launch_app` used to hang ~120s
+
+`bevy_launch_app` is **non-blocking by default** (`wait_secs=0`). It returns `status=spawned` + log path immediately.
+
+1. Call **`bevy_wait_brp`** with `timeout_secs` **180** (cold) or **30** (warm).  
+2. Then `bevy_brp_discover` / query / `bevy_capture_viewport`.  
+3. For **cold first compiles**, prefer shell/background `cargo run --features remote,capture` so the host MCP `tool_timeout_sec` cannot kill a long compile.  
+4. Optional: `wait_secs` on launch is capped at **60** (warm restarts only).
+
+CLI equivalent: `grok-bevy brp wait --port 15702 --timeout-secs 180`.
+
+### Stuck on Loading / empty Name queries
+
+Usually a missing asset root (binary run from `target/debug` without template `AssetPlugin`).
+
+- Templates pin debug assets to `CARGO_MANIFEST_DIR/assets`.  
+- After ~12s they fail-forward to MainMenu with an error log.  
+- Confirm `assets/` exists and paths match `AssetServer::load("sprites/…")` etc.  
+- Override with `BEVY_ASSET_ROOT` if needed.
+
+### Bevy B0001 query conflict panic
+
+Two systems with overlapping `Query<&mut T>` panic at runtime. Fix with marker components, `Without`, `ParamSet`, or split systems. Scaffolded `AGENTS.md` documents this.
+
+### Scaffold: templates not found
+
+**G6:** `grok-bevy` embeds `templates/` in the binary. Scaffold resolves:
+
+1. `GROK_BEVY_TEMPLATE_ROOT` (optional override)  
+2. Monorepo `templates/` (dev / `cargo install --path`)  
+3. Embedded extract to `~/.cache/grok-bevy/templates/<version>/`  
+
+You do **not** need a monorepo checkout for scaffold after a normal `cargo install --path` (or any install that compiled with templates present). Optional override:
+
+```toml
+[mcp_servers.grok-bevy.env]
+GROK_BEVY_TEMPLATE_ROOT = "/path/to/custom/templates"
+```
+
+`grok-bevy mcp-config` prints how templates were resolved.
+
 ## Slow compiles
 
 Bevy debug builds are heavy. The sample uses elevated `opt-level` for dependencies. For day-to-day work consider:
 
 - `cargo run --release` when iterating on BRP only  
 - Dynamic linking setups from Bevy docs (advanced)  
+- Shell `cargo run` for the first compile; MCP launch after `target/` is warm  
 
 ## Version skew
 
 Keep Bevy, `bevy_brp_extras`, and `bevy_brp_mcp` on the same track (see README matrix). Mixing 0.18 apps with 0.22 MCP crates will fail in subtle ways.
+
+Optional physics: **avian2d / avian3d 0.7** for Bevy **0.19** — see [PHYSICS.md](PHYSICS.md).

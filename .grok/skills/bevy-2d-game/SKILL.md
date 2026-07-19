@@ -50,7 +50,28 @@ Prefer a maintained Bevy 0.19-compatible tilemap crate when the design needs a g
 
 ## Physics
 
-Start without a physics crate (transform movement + simple AABB). Add physics only when jumps/collisions need it; pin a 0.19-compatible version.
+Start **without** a physics crate (transform movement + simple AABB). That is enough for most GAME_DOD top-down demos.
+
+When jumps/solid colliders/rigid bodies need it:
+
+| Pin | Version | Feature |
+|-----|---------|---------|
+| `avian2d` | **0.7** (Bevy **0.19**) | `physics` on scaffolded kits |
+
+```bash
+cargo run --features remote,capture,physics
+```
+
+```toml
+avian2d = { version = "0.7", optional = true }
+physics = ["dep:avian2d"]
+```
+
+- Prefer Avian for Bevy 0.19; re-check the [Avian version table](https://github.com/avianphysics/avian) on Bevy bumps.  
+- Own movement via physics **or** manual Transform — not both.  
+- Keep `Name` on bodies for BRP; watch **B0001** if multiple systems mutate transforms.  
+- Skip physics for strategy/factory placement games unless you truly need a solver.  
+- Full notes: repo `docs/PHYSICS.md`.
 
 ## Anti-patterns
 

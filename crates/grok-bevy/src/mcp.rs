@@ -144,8 +144,9 @@ pub fn mcp_instructions() -> String {
         "MCP prompts: start_2d_game, start_3d_game, build_demo_2d, build_demo_3d, iterate_scene, prepare_ship, package_demo. ",
         "bevy_workflow goals: new_2d|new_3d|complete_demo_2d|complete_demo_3d|verify_scene|ship|package_demo|add_sprite. ",
         "Asset roots: assets/sprites, models, ui, audio. Ship: cargo build --release; package binary + assets. ",
-        "Loop: bevy_env_check → bevy_launch_app (remote,capture) → query/mutate → bevy_capture_viewport. Port 15702. ",
-        "Optional full BRP: cargo install bevy_brp_mcp --locked."
+        "Loop: bevy_env_check → bevy_launch_app (non-blocking, wait_secs=0) → bevy_wait_brp → query/mutate → bevy_capture_viewport. Port 15702. ",
+        "Cold compile: prefer shell `cargo run --features remote,capture` then bevy_wait_brp; MCP launch is best after a warm target/. ",
+        "bevy_workflow is a router (skills+steps), not an autopilot. Optional full BRP: cargo install bevy_brp_mcp --locked."
     )
     .to_string()
 }
@@ -221,7 +222,7 @@ pub fn prompt_catalog() -> &'static [PromptDef] {
                 "Iterate on a running Bevy app with evidence from viewport captures.\n\n",
                 "1. Load skill: bevy-agent-loop (and bevy-production / bevy-demo-game if incomplete DoD).\n",
                 "2. Ensure the app uses features remote,capture and BRP port 15702 (or registered target).\n",
-                "3. MCP loop: bevy_env_check → bevy_launch_app (if needed) → bevy_brp_discover/query → ",
+                "3. MCP loop: bevy_env_check → bevy_launch_app (wait_secs=0) → bevy_wait_brp → bevy_brp_discover/query → ",
                 "optional bevy_brp_mutate → bevy_capture_viewport → describe defects → patch code/art → recapture.\n",
                 "4. Prefer fully-qualified Reflect type paths; Name entities for readable queries.\n",
                 "5. For full hierarchy/watches/input injection use bevy_brp_mcp when installed.\n",
@@ -342,9 +343,10 @@ pub fn workflow_plan(goal: WorkflowGoal) -> String {
             "  1. bevy_env_check (MCP) or `grok-bevy doctor`\n",
             "  2. Prefer games/demo-2d if present; else `grok-bevy scaffold --kind 2d --path <game-dir>`\n",
             "  3. Implement toward docs/GAME_DOD.md (not movement-only)\n",
-            "  4. MCP: bevy_launch_app with features remote,capture\n",
-            "  5. Captures: menu, play, end — bevy_capture_viewport\n",
+            "  4. Cold first build: shell `cargo run --features remote,capture`; else MCP bevy_launch_app (wait_secs=0)\n",
+            "  5. MCP: bevy_wait_brp (timeout_secs 180 cold / 30 warm) then captures: menu, play, end\n",
             "  6. Prompt: start_2d_game or build_demo_2d; goal complete_demo_2d when finishing\n",
+            "Note: bevy_workflow is a router (skills+steps), not an autopilot executor.\n",
         )
         .to_string(),
         WorkflowGoal::New3d => concat!(
@@ -359,9 +361,10 @@ pub fn workflow_plan(goal: WorkflowGoal) -> String {
             "  1. bevy_env_check or `grok-bevy doctor`\n",
             "  2. Prefer games/demo-3d if present; else `grok-bevy scaffold --kind 3d --path <game-dir>`\n",
             "  3. Implement toward docs/GAME_DOD.md; keep lighting for captures\n",
-            "  4. MCP: bevy_launch_app (remote,capture)\n",
-            "  5. Captures: menu, play, end\n",
+            "  4. Cold first build: shell cargo run; else MCP bevy_launch_app (wait_secs=0)\n",
+            "  5. MCP: bevy_wait_brp then captures: menu, play, end\n",
             "  6. Prompt: start_3d_game or build_demo_3d; goal complete_demo_3d when finishing\n",
+            "Note: bevy_workflow is a router (skills+steps), not an autopilot executor.\n",
         )
         .to_string(),
         WorkflowGoal::CompleteDemo2d => concat!(
@@ -401,8 +404,8 @@ pub fn workflow_plan(goal: WorkflowGoal) -> String {
             "  2. bevy-demo-game / bevy-production if DoD incomplete\n",
             "Steps:\n",
             "  1. Confirm app features remote,capture; BRP port 15702\n",
-            "  2. MCP: bevy_launch_app if not running\n",
-            "  3. MCP: bevy_brp_discover → bevy_brp_query\n",
+            "  2. MCP: bevy_launch_app (wait_secs=0) if not running; cold compile prefer shell cargo run\n",
+            "  3. MCP: bevy_wait_brp → bevy_brp_discover → bevy_brp_query\n",
             "  4. Optional: bevy_brp_mutate for quick transform checks\n",
             "  5. MCP: bevy_capture_viewport — inspect image, list defects\n",
             "  6. Patch code or assets; recapture until acceptance\n",
@@ -447,7 +450,7 @@ pub fn workflow_plan(goal: WorkflowGoal) -> String {
             "  1. Generate engine-ready art (keyable background for sprites)\n",
             "  2. Write under assets/sprites (or ui/models as appropriate)\n",
             "  3. Load via AssetServer path relative to assets/\n",
-            "  4. MCP: bevy_launch_app + bevy_capture_viewport to confirm scale/pivot\n",
+            "  4. MCP: bevy_launch_app → bevy_wait_brp → bevy_capture_viewport to confirm scale/pivot\n",
         )
         .to_string(),
     }
@@ -562,7 +565,7 @@ fn tool_defs() -> Value {
         },
         {
             "name": "bevy_launch_app",
-            "description": "Launch a Bevy app (cargo run) with optional features. Prefer apps that enable remote+capture features. Logs go to a temp file.",
+            "description": "Spawn a Bevy app via cargo run (non-blocking by default). Sets cwd to the package dir. Prefer remote+capture features. For cold first compiles prefer shell cargo run; then call bevy_wait_brp. Logs go to a temp file.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -584,9 +587,37 @@ fn tool_defs() -> Value {
                         "type": "string",
                         "description": "Named target to register",
                         "default": "launched"
+                    },
+                    "wait_secs": {
+                        "type": "integer",
+                        "description": "Optional BRP wait after spawn (default 0 = return immediately). Cap 60; use bevy_wait_brp for longer cold waits.",
+                        "default": 0
                     }
                 },
                 "required": ["manifest_path"]
+            }
+        },
+        {
+            "name": "bevy_wait_brp",
+            "description": "Poll until BRP rpc.discover succeeds on a port (or timeout). Use after bevy_launch_app or shell cargo run. Prefer timeout_secs 180 for cold first compiles, 30 for warm restarts.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "port": {
+                        "type": "integer",
+                        "description": "BRP port",
+                        "default": 15702
+                    },
+                    "target": {
+                        "type": "string",
+                        "description": "Named target (optional; overrides port if registered)"
+                    },
+                    "timeout_secs": {
+                        "type": "integer",
+                        "description": "Max seconds to wait",
+                        "default": 30
+                    }
+                }
             }
         },
         {
@@ -596,7 +627,7 @@ fn tool_defs() -> Value {
         },
         {
             "name": "bevy_workflow",
-            "description": "Production workflow router: goal → ordered skills + MCP/CLI steps. Goals: new_2d, new_3d, complete_demo_2d, complete_demo_3d, verify_scene, ship, package_demo, add_sprite.",
+            "description": "Production workflow router (not autopilot): goal → ordered skills + MCP/CLI steps. Goals: new_2d, new_3d, complete_demo_2d, complete_demo_3d, verify_scene, ship, package_demo, add_sprite.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -749,6 +780,21 @@ async fn call_tool(name: &str, args: Value, state: Arc<Mutex<ServerState>>) -> R
                 .and_then(|n| n.as_str())
                 .unwrap_or("launched")
                 .to_string();
+            // Default 0: return immediately so host tool_timeout cannot kill cold compiles.
+            let mut wait_secs = args
+                .get("wait_secs")
+                .and_then(|w| w.as_u64())
+                .unwrap_or(0);
+            if wait_secs > 60 {
+                wait_secs = 60;
+            }
+
+            let manifest_path = PathBuf::from(&manifest);
+            let package_dir = manifest_path
+                .parent()
+                .filter(|p| !p.as_os_str().is_empty())
+                .map(|p| p.to_path_buf())
+                .unwrap_or_else(|| PathBuf::from("."));
 
             let log_path = std::env::temp_dir().join(format!(
                 "grok-bevy-launch-{}-{}.log",
@@ -765,6 +811,7 @@ async fn call_tool(name: &str, args: Value, state: Arc<Mutex<ServerState>>) -> R
                 .arg(&manifest)
                 .arg("--features")
                 .arg(&features)
+                .current_dir(&package_dir)
                 .stdin(Stdio::null())
                 .stdout(Stdio::from(log_file))
                 .stderr(Stdio::from(log_err))
@@ -777,21 +824,52 @@ async fn call_tool(name: &str, args: Value, state: Arc<Mutex<ServerState>>) -> R
                 st.targets.register(BrpTarget::new(&name, port));
             }
 
-            // Wait briefly for BRP.
+            if wait_secs == 0 {
+                return text_result(format!(
+                    "status=spawned manifest={manifest} features={features} port={port} target={name} \
+                     cwd={} log={} note=call bevy_wait_brp (timeout_secs 180 cold / 30 warm) before query/capture",
+                    package_dir.display(),
+                    log_path.display()
+                ));
+            }
+
             let client = BrpClient::with_port(port);
             let wait = tokio::task::spawn_blocking(move || {
-                client.wait_until_ready(std::time::Duration::from_secs(120))
+                client.wait_until_ready(std::time::Duration::from_secs(wait_secs))
             })
             .await?;
 
             match wait {
                 Ok(_) => text_result(format!(
-                    "Launched {manifest} (features={features}). BRP ready on port {port} as target '{name}'. Logs: {}",
+                    "status=ready manifest={manifest} features={features} port={port} target={name} log={}",
                     log_path.display()
                 )),
                 Err(e) => text_result(format!(
-                    "Launched process for {manifest}, but BRP not ready yet on port {port}: {e}. Logs: {}. The app may still be compiling.",
+                    "status=timeout manifest={manifest} port={port} target={name} error={e} log={} \
+                     note=app may still be compiling; call bevy_wait_brp again or use shell cargo run for cold builds",
                     log_path.display()
+                )),
+            }
+        }
+        "bevy_wait_brp" => {
+            let client = client_from_args(&args, &state).await?;
+            let port = client.target.port;
+            let timeout_secs = args
+                .get("timeout_secs")
+                .and_then(|t| t.as_u64())
+                .unwrap_or(30)
+                .min(600);
+            let wait = tokio::task::spawn_blocking(move || {
+                client.wait_until_ready(std::time::Duration::from_secs(timeout_secs))
+            })
+            .await?;
+            match wait {
+                Ok(_) => text_result(format!(
+                    "status=ready port={port} timeout_secs={timeout_secs} note=BRP rpc.discover succeeded"
+                )),
+                Err(e) => text_result(format!(
+                    "status=timeout port={port} timeout_secs={timeout_secs} error={e} \
+                     note=check cargo compile logs; cold Bevy builds often need 180s+; ensure features remote,capture"
                 )),
             }
         }
@@ -960,5 +1038,21 @@ mod tests {
             .collect();
         assert!(names.contains(&"bevy_workflow"));
         assert!(names.contains(&"bevy_capture_viewport"));
+        assert!(names.contains(&"bevy_wait_brp"));
+        assert!(names.contains(&"bevy_launch_app"));
+    }
+
+    #[test]
+    fn workflow_verify_mentions_wait_brp() {
+        let plan = workflow_plan(WorkflowGoal::VerifyScene);
+        assert!(plan.contains("bevy_wait_brp"));
+        assert!(plan.contains("bevy_launch_app"));
+    }
+
+    #[test]
+    fn instructions_mention_nonblocking_launch() {
+        let s = mcp_instructions();
+        assert!(s.contains("bevy_wait_brp") || s.contains("wait_secs"));
+        assert!(s.contains("router") || s.contains("autopilot"));
     }
 }

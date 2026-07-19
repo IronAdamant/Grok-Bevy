@@ -13,8 +13,17 @@
 
 ## Layout
 
-Keep `main.rs` thin; game logic in `lib` / `plugins` / `systems`.  
+Thin `main.rs`; logic in plugins/systems.  
 Assets: `assets/sprites`, `assets/ui`, `assets/audio`.
+
+## Asset root
+
+Debug: `AssetPlugin` uses `CARGO_MANIFEST_DIR/assets` (safe when running `target/debug/*`).  
+Release: relative `assets/` (package beside binary). Override: `BEVY_ASSET_ROOT`.
+
+## ECS queries (B0001)
+
+Overlapping `Query<&mut T>` systems panic at runtime (**B0001**). Prefer marker components, `Without`, `ParamSet`, or split systems.
 
 ## States
 
@@ -22,4 +31,4 @@ Assets: `assets/sprites`, `assets/ui`, `assets/audio`.
 
 ## Ship
 
-`cargo build --release`. Do not ship without menu→play and movement working.
+`cargo build --release`.

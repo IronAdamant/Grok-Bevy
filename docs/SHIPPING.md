@@ -27,11 +27,17 @@ codegen-units = 1
 
 ## Assets next to the binary
 
-Bevy resolves `assets/` relative to the **current working directory** by default. When distributing:
+Grok-Bevy **production templates** (2d/3d) set `AssetPlugin` as:
 
-1. Ship the `assets/` folder beside the executable, **or**
-2. Document that the game must be launched from the project root, **or**
-3. Configure asset plugin paths for your packaging setup.
+- **Debug:** crate-root `assets/` via `CARGO_MANIFEST_DIR` (agent-friendly when running `target/debug/*`)
+- **Release:** relative `"assets"` — ship the folder **beside the executable**
+- **Override:** env `BEVY_ASSET_ROOT`
+
+When distributing a release:
+
+1. Ship the `assets/` folder beside the executable (matches release `AssetPlugin`), **or**
+2. Set `BEVY_ASSET_ROOT` for custom layouts, **or**
+3. Document that the game must be launched from a directory that contains `assets/`.
 
 Never assume `cargo run` paths when double-clicking a binary from another directory.
 

@@ -28,7 +28,7 @@ Design, art direction, and design iteration are **user-owned**. Grok-Bevy owns *
 | **G3** | In-repo dogfood | **Done** — `games/demo-2d`, `games/demo-3d` |
 | **G4** | Packaging | **Done** — `scripts/package-demo.sh` + docs/skill |
 | **G5** | Steam path | Docs/skill only until packaging works |
-| **G6** | Install ergonomics | Templates/binary easy outside monorepo |
+| **G6** | Install ergonomics | **Done** — templates embedded in CLI; `GROK_BEVY_TEMPLATE_ROOT` optional override |
 
 ```text
 G1 ──► G2a (2D kit) ──► G3a (demo-2d)

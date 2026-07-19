@@ -1,11 +1,22 @@
 //! Scaffold BRP-enabled Bevy games from in-repo templates.
 //!
 //! Templates under `<repo>/templates/{game-2d,game-3d,sample-app}` are the source of
-//! truth. Scaffold copies the tree and substitutes package / window title tokens.
+//! truth at development time. They are also **embedded** into the CLI binary (G6) so
+//! `cargo install` / installed MCP can scaffold without a monorepo checkout.
+//!
+//! Resolution order for the template root:
+//! 1. `GROK_BEVY_TEMPLATE_ROOT` (override)
+//! 2. Monorepo `templates/` next to the crate (dev / `cargo install --path`)
+//! 3. Embedded templates extracted to a versioned cache directory
 
 use anyhow::{bail, Context, Result};
+use include_dir::{include_dir, Dir};
 use std::fs;
 use std::path::{Path, PathBuf};
+
+/// Embedded copy of monorepo `templates/` (baked at compile time).
+static EMBEDDED_TEMPLATES: Dir<'_> =
+    include_dir!("$CARGO_MANIFEST_DIR/../../templates");
 
 /// Which project template to materialize.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -47,15 +58,26 @@ impl ScaffoldKind {
     }
 }
 
-/// Resolve the templates directory (source of truth for scaffold).
+/// How templates were resolved (for tests and mcp-config messaging).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TemplateOrigin {
+    /// `GROK_BEVY_TEMPLATE_ROOT`
+    Env,
+    /// Monorepo / compile-time path relative to crate
+    Disk,
+    /// Extracted from binary-embedded templates
+    Embedded,
+}
+
+/// Disk-only template root: env override, then monorepo path. No embedded fallback.
 ///
-/// Order: `GROK_BEVY_TEMPLATE_ROOT` env, then workspace `templates/` relative to
-/// this crate's `CARGO_MANIFEST_DIR` (works for `cargo run` / `cargo install --path`).
-pub fn template_root() -> Result<PathBuf> {
+/// Used by tests that need to prove disk discovery still works, and by
+/// `template_root` before falling back to embed.
+pub fn template_root_disk() -> Result<(PathBuf, TemplateOrigin)> {
     if let Ok(p) = std::env::var("GROK_BEVY_TEMPLATE_ROOT") {
         let path = PathBuf::from(p);
         if path.is_dir() {
-            return Ok(path);
+            return Ok((path, TemplateOrigin::Env));
         }
         bail!(
             "GROK_BEVY_TEMPLATE_ROOT={} is not a directory",
@@ -64,14 +86,102 @@ pub fn template_root() -> Result<PathBuf> {
     }
     let from_manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../templates");
     if from_manifest.is_dir() {
-        return from_manifest
+        let canon = from_manifest
             .canonicalize()
-            .with_context(|| format!("canonicalize {}", from_manifest.display()));
+            .with_context(|| format!("canonicalize {}", from_manifest.display()))?;
+        return Ok((canon, TemplateOrigin::Disk));
     }
     bail!(
-        "could not find Grok-Bevy templates/ (looked at {}). Set GROK_BEVY_TEMPLATE_ROOT.",
+        "disk templates not found at {}",
         from_manifest.display()
     )
+}
+
+/// Cache directory for extracted embedded templates (`…/grok-bevy/templates/<version>`).
+pub fn embedded_templates_cache_dir() -> PathBuf {
+    let version = env!("CARGO_PKG_VERSION");
+    if let Ok(xdg) = std::env::var("XDG_CACHE_HOME") {
+        return PathBuf::from(xdg)
+            .join("grok-bevy")
+            .join("templates")
+            .join(version);
+    }
+    if let Ok(home) = std::env::var("HOME") {
+        return PathBuf::from(home)
+            .join(".cache")
+            .join("grok-bevy")
+            .join("templates")
+            .join(version);
+    }
+    std::env::temp_dir()
+        .join("grok-bevy")
+        .join("templates")
+        .join(version)
+}
+
+/// Extract embedded templates into `dest` (must not already contain a complete tree).
+pub fn extract_embedded_templates(dest: &Path) -> Result<()> {
+    fs::create_dir_all(dest).with_context(|| format!("create {}", dest.display()))?;
+    EMBEDDED_TEMPLATES
+        .extract(dest)
+        .with_context(|| format!("extract embedded templates to {}", dest.display()))?;
+    // Sanity: required kits present after extract.
+    for kind in ["game-2d", "game-3d", "sample-app"] {
+        let p = dest.join(kind);
+        if !p.is_dir() {
+            bail!(
+                "embedded extract incomplete: missing {} under {}",
+                kind,
+                dest.display()
+            );
+        }
+    }
+    fs::write(dest.join(".grok-bevy-templates-complete"), env!("CARGO_PKG_VERSION"))
+        .with_context(|| format!("write marker under {}", dest.display()))?;
+    Ok(())
+}
+
+/// Ensure embedded templates are available on disk (cache), return that root.
+pub fn ensure_embedded_template_root() -> Result<PathBuf> {
+    let cache = embedded_templates_cache_dir();
+    let marker = cache.join(".grok-bevy-templates-complete");
+    if marker.is_file()
+        && cache.join("game-2d").is_dir()
+        && cache.join("game-3d").is_dir()
+        && cache.join("sample-app").is_dir()
+    {
+        return Ok(cache);
+    }
+    if cache.exists() {
+        let _ = fs::remove_dir_all(&cache);
+    }
+    extract_embedded_templates(&cache)?;
+    Ok(cache)
+}
+
+/// Resolve the templates directory (source of truth for scaffold).
+///
+/// Order: `GROK_BEVY_TEMPLATE_ROOT` → monorepo `templates/` → embedded cache (G6).
+pub fn template_root() -> Result<PathBuf> {
+    Ok(template_root_with_origin()?.0)
+}
+
+/// Like [`template_root`] but also reports how the path was obtained.
+pub fn template_root_with_origin() -> Result<(PathBuf, TemplateOrigin)> {
+    match template_root_disk() {
+        Ok(pair) => Ok(pair),
+        Err(_) => {
+            let path = ensure_embedded_template_root()?;
+            Ok((path, TemplateOrigin::Embedded))
+        }
+    }
+}
+
+/// Whether the binary has the embedded template set (compile-time).
+pub fn embedded_templates_available() -> bool {
+    EMBEDDED_TEMPLATES.get_dir("game-2d").is_some()
+        && EMBEDDED_TEMPLATES.get_dir("game-3d").is_some()
+        && EMBEDDED_TEMPLATES.get_dir("sample-app").is_some()
 }
 
 /// Normalize a user package name to a valid Cargo/Rust crate name (snake_case).
@@ -116,6 +226,19 @@ pub fn scaffold_app(
     package_name: Option<&str>,
     force: bool,
 ) -> Result<()> {
+    scaffold_app_with_root(dest, kind, package_name, force, None)
+}
+
+/// Scaffold using an explicit template root (tests / forced embedded path).
+///
+/// When `template_root_override` is `None`, uses [`template_root`].
+pub fn scaffold_app_with_root(
+    dest: &Path,
+    kind: ScaffoldKind,
+    package_name: Option<&str>,
+    force: bool,
+    template_root_override: Option<&Path>,
+) -> Result<()> {
     let pkg = normalize_package_name(package_name.unwrap_or(&default_package_name(dest, kind)));
     let title = match kind {
         ScaffoldKind::TwoD => format!("{pkg} (2D)"),
@@ -123,7 +246,10 @@ pub fn scaffold_app(
         ScaffoldKind::Demo => format!("{pkg} (demo)"),
     };
 
-    let templates = template_root()?;
+    let templates = match template_root_override {
+        Some(p) => p.to_path_buf(),
+        None => template_root()?,
+    };
     let src = templates.join(kind.template_dir_name());
     if !src.is_dir() {
         bail!("template missing: {}", src.display());
@@ -159,7 +285,7 @@ pub fn scaffold_app(
         dest.display()
     );
     println!("  package: {pkg}");
-    println!("  Features: `remote` (BRP), `capture` (screenshots)");
+    println!("  Features: `remote` (BRP), `capture` (screenshots); optional `physics` (Avian 0.7)");
     println!(
         "  Run: cargo run --manifest-path {} --features remote,capture",
         dest.join("Cargo.toml").display()
@@ -201,7 +327,7 @@ fn write_project_agents(dest: &Path, kind: ScaffoldKind, pkg: &str) -> Result<()
 
 ## Pins
 - Bevy **0.19**, bevy_brp_extras **0.22.1**, BRP port **15702**
-- Features: `remote`, `capture`
+- Features: `remote`, `capture`; optional `physics` → avian2d **0.7**
 
 ## Skills
 1. `bevy-production` + `bevy-2d-game`
@@ -210,6 +336,10 @@ fn write_project_agents(dest: &Path, kind: ScaffoldKind, pkg: &str) -> Result<()
 
 ## Assets
 `assets/sprites/`, `assets/ui/`, `assets/audio/` (paths relative to `assets/` for AssetServer).
+Debug builds use crate-root assets via `AssetPlugin` + `CARGO_MANIFEST_DIR`; release expects `assets/` beside the binary (or `BEVY_ASSET_ROOT`).
+
+## ECS queries (B0001)
+Overlapping `Query<&mut T>` systems panic at runtime (Bevy **B0001**). Prefer marker components, `Without`, `ParamSet`, or split systems.
 
 ## States
 `Loading` → `MainMenu` → `Playing` / `Paused`
@@ -226,7 +356,7 @@ See Grok-Bevy `docs/ASSET_CONVENTIONS.md` and `docs/SHIPPING.md` when available.
 
 ## Pins
 - Bevy **0.19**, bevy_brp_extras **0.22.1**, BRP port **15702**
-- Features: `remote`, `capture`
+- Features: `remote`, `capture`; optional `physics` → avian3d **0.7**
 
 ## Skills
 1. `bevy-production` + `bevy-3d-game`
@@ -235,6 +365,10 @@ See Grok-Bevy `docs/ASSET_CONVENTIONS.md` and `docs/SHIPPING.md` when available.
 
 ## Assets
 `assets/models/`, `assets/ui/`, `assets/audio/` (optional `sprites/`).
+Debug builds use crate-root assets via `AssetPlugin` + `CARGO_MANIFEST_DIR`; release expects `assets/` beside the binary (or `BEVY_ASSET_ROOT`).
+
+## ECS queries (B0001)
+Overlapping `Query<&mut T>` systems panic at runtime (Bevy **B0001**). Prefer marker components, `Without`, `ParamSet`, or split systems.
 
 ## States
 `Loading` → `MainMenu` → `Playing` / `Paused`
@@ -375,6 +509,97 @@ mod tests {
     }
 
     #[test]
+    fn embedded_templates_are_baked_into_binary() {
+        assert!(
+            embedded_templates_available(),
+            "include_dir must bake game-2d, game-3d, sample-app"
+        );
+        assert!(EMBEDDED_TEMPLATES
+            .get_file("game-2d/Cargo.toml")
+            .is_some());
+        assert!(EMBEDDED_TEMPLATES
+            .get_file("game-3d/Cargo.toml")
+            .is_some());
+        let cargo_2d = EMBEDDED_TEMPLATES
+            .get_file("game-2d/Cargo.toml")
+            .unwrap()
+            .contents_utf8()
+            .unwrap();
+        assert!(
+            cargo_2d.contains("physics") && cargo_2d.contains("avian2d"),
+            "embedded 2d kit must declare optional physics/avian2d"
+        );
+        let cargo_3d = EMBEDDED_TEMPLATES
+            .get_file("game-3d/Cargo.toml")
+            .unwrap()
+            .contents_utf8()
+            .unwrap();
+        assert!(
+            cargo_3d.contains("physics") && cargo_3d.contains("avian3d"),
+            "embedded 3d kit must declare optional physics/avian3d"
+        );
+    }
+
+    #[test]
+    fn scaffold_from_embedded_extract_without_env_or_monorepo_path() {
+        // Simulate install: only embedded bytes → extract to private dir → scaffold.
+        // Do not rely on GROK_BEVY_TEMPLATE_ROOT or monorepo disk layout for the copy source.
+        assert!(embedded_templates_available());
+        let dir = tempfile::tempdir().unwrap();
+        let embedded_root = dir.path().join("embedded_templates");
+        extract_embedded_templates(&embedded_root).expect("extract embedded");
+
+        // No env, no monorepo path used — only the extracted embedded tree.
+        let dest_2d = dir.path().join("g6_2d");
+        scaffold_app_with_root(
+            &dest_2d,
+            ScaffoldKind::TwoD,
+            Some("g6_2d_game"),
+            true,
+            Some(&embedded_root),
+        )
+        .expect("scaffold 2d from embedded");
+        assert!(dest_2d.join("Cargo.toml").is_file());
+        assert!(dest_2d.join("src/main.rs").is_file());
+        assert!(dest_2d.join("src/lib.rs").is_file());
+        assert!(dest_2d.join("assets/sprites/player.png").is_file());
+        let cargo = fs::read_to_string(dest_2d.join("Cargo.toml")).unwrap();
+        assert!(cargo.contains("name = \"g6_2d_game\""));
+        assert!(cargo.contains("avian2d"));
+        assert!(cargo.contains("physics"));
+        // Default features must not enable physics
+        assert!(
+            cargo.contains("default = []") || !cargo.contains("default = [\"physics\"]"),
+            "physics must not be default"
+        );
+
+        let dest_3d = dir.path().join("g6_3d");
+        scaffold_app_with_root(
+            &dest_3d,
+            ScaffoldKind::ThreeD,
+            Some("g6_3d_game"),
+            true,
+            Some(&embedded_root),
+        )
+        .expect("scaffold 3d from embedded");
+        assert!(dest_3d.join("assets/models/ground_tint.png").is_file());
+        let cargo3 = fs::read_to_string(dest_3d.join("Cargo.toml")).unwrap();
+        assert!(cargo3.contains("avian3d"));
+        assert!(cargo3.contains("physics"));
+    }
+
+    #[test]
+    fn ensure_embedded_root_creates_cache_when_disk_missing_path_forced() {
+        // Direct extract path used when disk resolution fails in production.
+        let dir = tempfile::tempdir().unwrap();
+        let dest = dir.path().join("cache");
+        extract_embedded_templates(&dest).unwrap();
+        assert!(dest.join("game-2d/src/plugins/core.rs").is_file());
+        let core = fs::read_to_string(dest.join("game-2d/src/plugins/core.rs")).unwrap();
+        assert!(core.contains("AssetPlugin"));
+    }
+
+    #[test]
     fn scaffold_2d_writes_playable_tree() {
         let dir = tempfile::tempdir().unwrap();
         let dest = dir.path().join("cool_game");
@@ -390,6 +615,7 @@ mod tests {
         let cargo = fs::read_to_string(dest.join("Cargo.toml")).unwrap();
         assert!(cargo.contains("name = \"cool_game\""));
         assert!(cargo.contains("remote") && cargo.contains("capture"));
+        assert!(cargo.contains("physics") && cargo.contains("avian2d"));
 
         let gameplay = fs::read_to_string(dest.join("src/systems/gameplay.rs")).unwrap();
         assert!(gameplay.contains("player_movement"));
@@ -402,10 +628,24 @@ mod tests {
         let loading = fs::read_to_string(dest.join("src/systems/loading.rs")).unwrap();
         assert!(loading.contains("sprites/player.png"));
         assert!(loading.contains("AssetServer"));
+        assert!(loading.contains("LoadingTimeout") || loading.contains("timeout"));
+
+        let core = fs::read_to_string(dest.join("src/plugins/core.rs")).unwrap();
+        assert!(core.contains("AssetPlugin"));
+        assert!(core.contains("CARGO_MANIFEST_DIR") || core.contains("asset_root"));
+
+        let agents = fs::read_to_string(dest.join("AGENTS.md")).unwrap();
+        assert!(agents.contains("B0001") || agents.contains("ParamSet"));
 
         let main = fs::read_to_string(dest.join("src/main.rs")).unwrap();
         assert!(main.contains("cool_game::GamePlugin"));
         assert!(!main.contains("__PACKAGE_NAME__"));
+
+        let lib = fs::read_to_string(dest.join("src/lib.rs")).unwrap();
+        assert!(
+            lib.contains("feature = \"physics\"") || lib.contains("cfg(feature = \"physics\")"),
+            "lib must gate PhysicsPlugins"
+        );
     }
 
     #[test]
@@ -420,9 +660,16 @@ mod tests {
         assert!(gameplay.contains("Camera3d"));
         let loading = fs::read_to_string(dest.join("src/systems/loading.rs")).unwrap();
         assert!(loading.contains("models/ground_tint.png"));
+        let core = fs::read_to_string(dest.join("src/plugins/core.rs")).unwrap();
+        assert!(core.contains("AssetPlugin"));
         let agents = fs::read_to_string(dest.join("AGENTS.md")).unwrap();
         assert!(agents.contains("cargo build --release"));
         assert!(agents.contains("assets/models"));
+        assert!(agents.contains("B0001") || agents.contains("ParamSet"));
+        let cargo = fs::read_to_string(dest.join("Cargo.toml")).unwrap();
+        assert!(cargo.contains("avian3d") && cargo.contains("physics"));
+        let lib = fs::read_to_string(dest.join("src/lib.rs")).unwrap();
+        assert!(lib.contains("cfg(feature = \"physics\")"));
     }
 
     #[test]

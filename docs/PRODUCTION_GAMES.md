@@ -14,8 +14,9 @@ Skills (HOW)  →  Scaffold / layout (WHERE)  →  MCP capture (WHAT)
 2. Use a production layout (plugins, states, `assets/`) — not a single-file demo.
 3. Implement a vertical slice: **Loading → MainMenu → Playing** (+ **Paused**).
 4. Run with `--features remote,capture`.
-5. Follow **`bevy-agent-loop`**: wait → query/mutate → **capture viewport** → fix → repeat.
+5. Follow **`bevy-agent-loop`**: launch (non-blocking) → **`bevy_wait_brp`** → query/mutate → **capture viewport** → fix → repeat. Cold first compile: prefer shell `cargo run`.
 6. For art, load Grok **`game-asset-core`** (+ specialist) and drop files under `assets/`.
+7. Physics is optional: pins in [PHYSICS.md](PHYSICS.md) (`avian2d` / `avian3d` **0.7**). Default kits stay transform-based.
 
 ## Skill map (this repo)
 

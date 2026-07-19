@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **G6 install ergonomics:** templates embedded in `grok-bevy` via `include_dir`; scaffold falls back to cache extract without monorepo / `GROK_BEVY_TEMPLATE_ROOT`
+- **Optional `physics` feature** on 2d/3d templates and demos (`avian2d` / `avian3d` **0.7**); default features unchanged
+
+## [0.2.0] — 2026-07-19
+
+### Added
+
+- **external dogfood project dogfood fixes (Wave A/B):**
+  - Template/demo `AssetPlugin` dual-mode: debug `CARGO_MANIFEST_DIR/assets`, release relative `assets/`, env `BEVY_ASSET_ROOT`
+  - Loading fail-forward timeout (~12s) so stuck asset loads do not block BRP forever
+  - MCP **`bevy_wait_brp`**; **`bevy_launch_app`** non-blocking by default (`wait_secs=0`), sets package cwd
+  - `docs/PHYSICS.md` + skill pins: **avian2d/avian3d 0.7** for Bevy 0.19 (kits remain transform-based)
+  - TROUBLESHOOTING: BRP method table, launch/wait, B0001, template root, Loading stuck
+  - Scaffold/template `AGENTS.md`: asset root + B0001 notes
+  - `mcp-config` prints `GROK_BEVY_TEMPLATE_ROOT` when templates are discoverable
+
 - **Game factory (v0.3 / alpha) G1–G4:**
   - `docs/GAME_DOD.md`, `docs/ROADMAP.md`, `docs/PACKAGING.md`
   - Skills `bevy-demo-game`, `bevy-package`; MCP demo/package workflows
@@ -28,8 +44,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Workspace crate version **0.2.0** (aligns package with PROGRESS v0.2/v0.3 narrative)
 - Default scaffold kind is **`2d`** (production); `demo` is the BRP cube fixture (`templates/sample-app`)
 - Positioning: `templates/sample-app` is BRP **integration fixture**, not a production game template
+- `bevy_workflow` documented as **router, not autopilot**
 
 ## [0.1.0] — 2026-07-17
 

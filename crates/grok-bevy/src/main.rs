@@ -349,7 +349,32 @@ fn print_mcp_config(bin: Option<PathBuf>) -> Result<()> {
     println!("args = [\"mcp\"]");
     println!("enabled = true");
     println!("startup_timeout_sec = 30");
+    // Launch is non-blocking; wait is a separate tool (bevy_wait_brp). 120s is enough per call.
+    println!("tool_timeout_sec = 120");
     println!();
+    // G6: templates are embedded in the binary. Optional override still supported.
+    println!(
+        "# Embedded templates in binary: {}",
+        crate::scaffold::embedded_templates_available()
+    );
+    match crate::scaffold::template_root_with_origin() {
+        Ok((root, origin)) => {
+            println!(
+                "# Templates resolved via {:?} → {}",
+                origin,
+                root.display()
+            );
+            println!("# Optional override (skip embedded/monorepo discovery):");
+            println!("# [mcp_servers.grok-bevy.env]");
+            println!("# GROK_BEVY_TEMPLATE_ROOT = {:?}", root.display().to_string());
+            println!();
+        }
+        Err(e) => {
+            println!("# Template resolution failed: {e}");
+            println!("# Scaffold embeds kits in the binary; rebuild or set GROK_BEVY_TEMPLATE_ROOT.");
+            println!();
+        }
+    }
     println!("# Optional: full bevy_brp_mcp tool surface (after cargo install bevy_brp_mcp)");
     println!("[mcp_servers.bevy-brp]");
     println!("command = \"bevy_brp_mcp\"");

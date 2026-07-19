@@ -193,7 +193,7 @@ For **game art**, pair with Grok’s image skills (e.g. `game-asset-core`) and d
 |-------|---------|
 | Bevy game engine | **0.19** |
 | bevy_brp_mcp / bevy_brp_extras | **0.22.1** |
-| Grok-Bevy | **0.1.x** (v0.2 features on `main`) |
+| Grok-Bevy | **0.2.x** (game factory alpha continues on `main`) |
 
 Bevy is a **Cargo** dependency of your game project—not a separate installer. “Ready” means this machine can **compile and run** Bevy apps.
 

@@ -35,6 +35,8 @@ grok mcp add bevy-brp -- bevy_brp_mcp
 
 Or paste the TOML from `grok-bevy mcp-config` into `~/.grok/config.toml`.
 
+Templates are **embedded** in the CLI (G6); monorepo/`GROK_BEVY_TEMPLATE_ROOT` are optional overrides. Launch is non-blocking; use MCP `bevy_wait_brp` (or CLI `brp wait`) after start.
+
 ### 4. Start the sample (terminal A)
 
 ```bash

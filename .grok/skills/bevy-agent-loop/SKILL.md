@@ -22,9 +22,9 @@ You control a **running** Bevy app. Prefer evidence from **viewport capture** ov
 
 1. **`bevy_env_check`** (or CLI `grok-bevy doctor`) if the host is unknown.  
 2. **Launch**  
-   - MCP: `bevy_launch_app` with `manifest_path` + `features: "remote,capture"`  
-   - Or user terminal: `cargo run --features remote,capture`  
-3. **Wait** until BRP answers (`bevy_brp_discover` or CLI `brp wait`).  
+   - **Cold first compile:** prefer shell/background `cargo run --features remote,capture` (MCP host tool timeouts can kill long compiles).  
+   - **Warm / already built:** MCP `bevy_launch_app` with `manifest_path` + `features: "remote,capture"` and **`wait_secs: 0`** (default; returns immediately).  
+3. **Wait** with MCP **`bevy_wait_brp`** (`timeout_secs` **180** cold / **30** warm) or CLI `grok-bevy brp wait --timeout-secs 180`.  
 4. **Query** named entities / transforms (`bevy_brp_query`).  
 5. **Mutate** if needed (`bevy_brp_mutate` — fully-qualified Reflect type paths).  
 6. **`bevy_capture_viewport`** — **look at the image**; describe defects honestly.  
@@ -36,14 +36,24 @@ You control a **running** Bevy app. Prefer evidence from **viewport capture** ov
 | Tool | Use |
 |------|-----|
 | `bevy_env_check` | Host ready? |
-| `bevy_launch_app` | Start game binary |
+| `bevy_launch_app` | Spawn game (`wait_secs=0` default; non-blocking) |
+| `bevy_wait_brp` | Poll until BRP ready (use after launch) |
 | `bevy_register_target` / `bevy_list_targets` | Multi-instance |
-| `bevy_brp_discover` | Method list |
+| `bevy_brp_discover` | Method list (`rpc.discover`) |
 | `bevy_brp_query` | Read components |
 | `bevy_brp_mutate` | Write field |
 | `bevy_brp_call` | Arbitrary BRP / `brp_extras/*` |
-| `bevy_capture_viewport` | PNG as MCP image |
+| `bevy_capture_viewport` | PNG as MCP image (`brp_extras/screenshot`) |
 | `bevy_brp_mcp_status` | Upstream MCP install help |
+
+## Exact BRP method names (do not invent)
+
+| Method | Use |
+|--------|-----|
+| `rpc.discover` | List methods |
+| `world.query` | Query |
+| `world.mutate_components` | Mutate |
+| `brp_extras/screenshot` | Screenshot path (**not** `bevy_brp_extras/…`) |
 
 ## Capture quality rules
 
@@ -83,11 +93,13 @@ Same port; complementary to grok-bevy’s focused tools.
 
 | Symptom | Check |
 |---------|--------|
-| Connection refused | App not running / missing `remote` / wrong port |
+| Connection refused | App not running / missing `remote` / wrong port; call `bevy_wait_brp` |
+| Launch MCP timeout (legacy) | Use non-blocking launch + `bevy_wait_brp`; cold compile via shell |
 | Black screenshot | Minimized window; no lights; camera wrong way |
-| Empty query | Wrong type path; entity not spawned yet (still Loading) |
+| Empty query / still Loading | Wrong type path; asset root (see ASSET_CONVENTIONS); wait for fail-forward timeout |
 | Mutate no-op | Path wrong; type not Reflect; wrong entity id |
-| Compile forever | First Bevy build; use doctor guidance; dev opt profiles |
+| B0001 panic | Overlapping mut queries — ParamSet / Without / split systems |
+| Compile forever | First Bevy build; shell cargo run; doctor guidance; dev opt profiles |
 
 ## Chain with other skills
 
