@@ -90,6 +90,14 @@ fn licenses_and_docs_present() {
     assert!(trouble.contains("brp_extras/screenshot"));
     assert!(trouble.contains("bevy_wait_brp") || trouble.contains("wait_secs"));
     assert!(
+        trouble.contains("bevy_ecs::name::Name") && trouble.contains("Name"),
+        "TROUBLESHOOTING must document Name FQN / alias"
+    );
+    assert!(
+        trouble.contains("send_keys") || trouble.contains("brp_extras/send_keys"),
+        "TROUBLESHOOTING should mention send_keys recipe"
+    );
+    assert!(
         trouble.contains("embedded") || trouble.contains("G6"),
         "TROUBLESHOOTING must document embedded templates (G6)"
     );

@@ -503,7 +503,7 @@ fn tool_defs() -> Value {
         },
         {
             "name": "bevy_brp_query",
-            "description": "Query entities/components via world.query on a running BRP-enabled Bevy app.",
+            "description": "Query entities/components via world.query. Components: short aliases Name, Transform, GlobalTransform or fully-qualified Reflect paths (contain ::). Default: Name + Transform.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -512,21 +512,24 @@ fn tool_defs() -> Value {
                     "components": {
                         "type": "array",
                         "items": { "type": "string" },
-                        "description": "Fully-qualified component type paths"
+                        "description": "Aliases (Name, Transform, GlobalTransform) or FQNs (e.g. bevy_ecs::name::Name)"
                     }
                 }
             }
         },
         {
             "name": "bevy_brp_mutate",
-            "description": "Mutate a component field via world.mutate_components.",
+            "description": "Mutate a component field via world.mutate_components. Component may be alias (Transform, Name) or FQN.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "port": { "type": "integer", "default": 15702 },
                     "target": { "type": "string" },
                     "entity": { "type": "integer" },
-                    "component": { "type": "string" },
+                    "component": {
+                        "type": "string",
+                        "description": "Alias (Transform, Name, GlobalTransform) or fully-qualified Reflect path"
+                    },
                     "path": { "type": "string" },
                     "value": {}
                 },
@@ -549,7 +552,7 @@ fn tool_defs() -> Value {
         },
         {
             "name": "bevy_capture_viewport",
-            "description": "Capture the Bevy primary window (or camera if supported by extras) via brp_extras/screenshot and return PNG image content for the agent to see the 3D scene.",
+            "description": "Capture the Bevy primary window via brp_extras/screenshot and return PNG (works for 2D and 3D). Text block always includes abs_path and byte size if chat UI truncates the image.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -659,7 +662,23 @@ async fn call_tool(name: &str, args: Value, state: Arc<Mutex<ServerState>>) -> R
                 )
             })
             .await?;
-            text_result(serde_json::to_string_pretty(&report)?)
+            // Stamp MCP binary version so agents detect stale installs (assessment residual).
+            let mut v = serde_json::to_value(&report)?;
+            if let Some(obj) = v.as_object_mut() {
+                obj.insert(
+                    "grok_bevy_version".into(),
+                    json!(env!("CARGO_PKG_VERSION")),
+                );
+                let bin = std::env::current_exe()
+                    .map(|p| p.display().to_string())
+                    .unwrap_or_else(|_| "unknown".into());
+                obj.insert("server_binary".into(), json!(bin));
+                obj.insert(
+                    "reload_hint".into(),
+                    json!("cargo install --path crates/grok-bevy --force && reload MCP"),
+                );
+            }
+            text_result(serde_json::to_string_pretty(&v)?)
         }
         "bevy_register_target" => {
             let name = args["name"].as_str().ok_or_else(|| anyhow!("name required"))?;
@@ -690,7 +709,7 @@ async fn call_tool(name: &str, args: Value, state: Arc<Mutex<ServerState>>) -> R
         }
         "bevy_brp_query" => {
             let client = client_from_args(&args, &state).await?;
-            let comps: Vec<String> = args
+            let raw: Vec<String> = args
                 .get("components")
                 .and_then(|c| c.as_array())
                 .map(|a| {
@@ -698,9 +717,8 @@ async fn call_tool(name: &str, args: Value, state: Arc<Mutex<ServerState>>) -> R
                         .filter_map(|v| v.as_str().map(|s| s.to_string()))
                         .collect()
                 })
-                .unwrap_or_else(|| {
-                    vec!["bevy_transform::components::transform::Transform".into()]
-                });
+                .unwrap_or_else(crate::component_paths::default_query_components);
+            let comps = crate::component_paths::expand_component_paths(&raw)?;
             let result = tokio::task::spawn_blocking(move || {
                 let refs: Vec<&str> = comps.iter().map(|s| s.as_str()).collect();
                 client.query(&refs)
@@ -713,10 +731,11 @@ async fn call_tool(name: &str, args: Value, state: Arc<Mutex<ServerState>>) -> R
             let entity = args["entity"]
                 .as_u64()
                 .ok_or_else(|| anyhow!("entity required"))?;
-            let component = args["component"]
+            let component_raw = args["component"]
                 .as_str()
                 .ok_or_else(|| anyhow!("component required"))?
                 .to_string();
+            let component = crate::component_paths::expand_component_path(&component_raw)?;
             let path = args["path"]
                 .as_str()
                 .ok_or_else(|| anyhow!("path required"))?
@@ -841,6 +860,7 @@ async fn call_tool(name: &str, args: Value, state: Arc<Mutex<ServerState>>) -> R
             };
 
             let child = cmd.spawn().context("spawn game process")?;
+            let child_pid = child.id();
             {
                 let mut st = state.lock().await;
                 st.child = Some(child);
@@ -856,6 +876,7 @@ async fn call_tool(name: &str, args: Value, state: Arc<Mutex<ServerState>>) -> R
                 &package_dir,
                 &log_path,
                 wait_secs,
+                child_pid,
             );
 
             if wait_secs == 0 {
@@ -1089,5 +1110,38 @@ mod tests {
         let s = mcp_instructions();
         assert!(s.contains("bevy_wait_brp") || s.contains("wait_secs"));
         assert!(s.contains("router") || s.contains("autopilot"));
+    }
+
+    #[test]
+    fn capture_tool_description_is_dimension_neutral() {
+        let tools = tool_defs();
+        let arr = tools.as_array().unwrap();
+        let cap = arr
+            .iter()
+            .find(|t| t.get("name").and_then(|n| n.as_str()) == Some("bevy_capture_viewport"))
+            .expect("capture tool");
+        let desc = cap["description"].as_str().unwrap();
+        assert!(
+            !desc.contains("3D scene") || desc.contains("2D"),
+            "capture must not be 3D-only: {desc}"
+        );
+        assert!(
+            desc.to_lowercase().contains("primary window")
+                || desc.contains("2D")
+                || desc.contains("2d"),
+            "expected primary window / 2D language: {desc}"
+        );
+    }
+
+    #[test]
+    fn query_tool_mentions_aliases() {
+        let tools = tool_defs();
+        let arr = tools.as_array().unwrap();
+        let q = arr
+            .iter()
+            .find(|t| t.get("name").and_then(|n| n.as_str()) == Some("bevy_brp_query"))
+            .unwrap();
+        let desc = q["description"].as_str().unwrap();
+        assert!(desc.contains("Name") && desc.contains("Transform"));
     }
 }

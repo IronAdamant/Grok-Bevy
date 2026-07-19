@@ -72,6 +72,7 @@ pub fn format_launch_spawn_message(
     cwd: &Path,
     log_path: &Path,
     wait_secs: u64,
+    pid: Option<u32>,
 ) -> String {
     let mode_s = match mode {
         LaunchMode::WarmBinary { binary } => {
@@ -90,8 +91,12 @@ pub fn format_launch_spawn_message(
     } else {
         format!("wait_secs={wait_secs} (capped; use bevy_wait_brp for longer waits)")
     };
+    let pid_s = match pid {
+        Some(p) => format!("pid={p}"),
+        None => "pid=unknown".into(),
+    };
     format!(
-        "status=spawned {mode_s} manifest={manifest} features={features} port={port} target={target} \
+        "status=spawned {mode_s} {pid_s} manifest={manifest} features={features} port={port} target={target} \
          cwd={} log={} {wait_note}",
         cwd.display(),
         log_path.display()
@@ -159,11 +164,13 @@ version = "0.1.0"
             dir.path(),
             Path::new("/tmp/log"),
             0,
+            Some(4242),
         );
         assert!(msg.contains("status=spawned"));
         assert!(msg.contains("warm_binary"));
         assert!(msg.contains("wait_secs=0"));
         assert!(msg.contains("bevy_wait_brp"));
+        assert!(msg.contains("pid=4242"));
     }
 
     #[test]
@@ -177,9 +184,11 @@ version = "0.1.0"
             Path::new("/proj"),
             Path::new("/tmp/l"),
             0,
+            None,
         );
         assert!(msg.contains("cold_cargo_run"));
         assert!(msg.contains("shell"));
         assert!(msg.contains("bevy_wait_brp"));
+        assert!(msg.contains("pid=unknown"));
     }
 }

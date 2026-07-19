@@ -44,13 +44,35 @@ Grok-Bevy correctly does **not** search for a `bevy` executable. Bevy is pulled 
 
 ### Query returns empty / type not found
 
-Use fully-qualified reflect paths, e.g.:
+**Short aliases** (MCP `bevy_brp_query` / `bevy_brp_mutate` expand these):
+
+| Alias | Fully-qualified Reflect path (Bevy 0.19) |
+|-------|------------------------------------------|
+| `Name` | `bevy_ecs::name::Name` |
+| `Transform` | `bevy_transform::components::transform::Transform` |
+| `GlobalTransform` | `bevy_transform::components::global_transform::GlobalTransform` |
+
+Example MCP query components: `["Name", "Transform"]` (default when omitted).
+
+Or pass FQNs directly (any string containing `::` is left unchanged):
 
 ```text
 bevy_transform::components::transform::Transform
 ```
 
 Discover methods with `grok-bevy brp discover` or MCP `bevy_brp_discover`. For schema help, prefer `bevy_brp_mcp`’s type guide tools.
+
+### Optional movement smoke (`send_keys`)
+
+After BRP is ready:
+
+1. `bevy_brp_query` with `Name` + `Transform` — note Player translation.  
+2. Prefer live `rpc.discover` / `bevy_brp_discover` for `brp_extras/send_keys` param schema (extras versions differ).  
+3. `bevy_brp_call` with `method: "brp_extras/send_keys"` and discover-backed params (e.g. press/hold movement keys briefly).  
+4. Re-query Transform — Player should move if input is wired.  
+5. **Fallback:** `bevy_brp_mutate` on Player `Transform` `translation` if send_keys is missing or flaky.  
+
+Rich keyboard/mouse injection: install optional `bevy_brp_mcp`.
 
 ### Mutate fails
 

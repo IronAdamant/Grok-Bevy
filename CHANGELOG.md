@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **MCP query aliases:** `Name` / `Transform` / `GlobalTransform` → Bevy 0.19 FQNs (`component_paths`)
+- **`bevy_env_check`** stamps `grok_bevy_version`, `server_binary`, `reload_hint` (stale install detection)
+- Launch spawn message includes **child `pid=`**
+- send_keys movement smoke recipe in agent-loop + TROUBLESHOOTING
+
+### Changed
+
+- Capture tool description is 2D/3D neutral (primary window)
+- Default `bevy_brp_query` components: Name + Transform (via aliases)
+
+### Previously unreleased (prior)
+
 - **G6 install ergonomics:** templates embedded in `grok-bevy` via `include_dir`; scaffold falls back to cache extract without monorepo / `GROK_BEVY_TEMPLATE_ROOT`
 - **Optional `physics` feature** on 2d/3d templates and demos (`avian2d` / `avian3d` **0.7**); default features unchanged
 

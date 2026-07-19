@@ -80,10 +80,19 @@ When finishing a short demo (`docs/GAME_DOD.md` / skill `bevy-demo-game`), captu
 Movement-only scenes are not complete demos.
 ## BRP hygiene
 
-- Use **fully-qualified** component type paths from `rpc.discover` / list components when unsure.  
+- **Aliases** (preferred): `Name`, `Transform`, `GlobalTransform` — MCP expands to Bevy 0.19 FQNs.  
+- Or pass FQNs with `::` (e.g. `bevy_ecs::name::Name`). Default query is Name + Transform.  
 - Prefer entities with **`Name`** for human-readable queries.  
-- Mutate small fields first (e.g. translation) to prove the pipe before complex edits.  
+- Mutate small fields first (e.g. `component: "Transform"`, `path: "translation"`) to prove the pipe.  
 - Custom components need Reflect + BRP registration to be mutable remotely.
+
+### Optional: movement via keys (after BRP ready)
+
+1. Query Player Transform (alias `Transform`).  
+2. `bevy_brp_discover` / check `brp_extras/send_keys` params.  
+3. `bevy_brp_call` method `brp_extras/send_keys` (discover-first params).  
+4. Re-query Transform.  
+5. If send_keys fails: `bevy_brp_mutate` translation instead (portfolio closed-loop still works).
 
 ## When to use bevy_brp_mcp
 

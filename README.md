@@ -179,8 +179,8 @@ More detail: [docs/FAST_START.md](docs/FAST_START.md) · [docs/PRODUCTION_GAMES.
 | `bevy_env_check` | Is this computer ready to build Bevy games? |
 | `bevy_launch_app` | Start my game (non-blocking; prefer after a warm build) |
 | `bevy_wait_brp` | Wait until BRP answers on the port |
-| `bevy_brp_query` | What entities/components exist right now? |
-| `bevy_brp_mutate` | Change a value on a live object (e.g. position) |
+| `bevy_brp_query` | What entities exist? (aliases `Name`/`Transform` or FQNs) |
+| `bevy_brp_mutate` | Change a live field (e.g. Transform translation) |
 | `bevy_capture_viewport` | **Screenshot the game window** for the agent to “see” |
 | `bevy_workflow` | Step-by-step plan: which skills + tools for a goal (router, not autopilot) |
 | `bevy_brp_mcp_status` | Is the optional full Bevy BRP MCP installed? |

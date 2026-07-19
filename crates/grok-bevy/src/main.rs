@@ -1,6 +1,7 @@
 //! Grok-Bevy CLI — environment doctor, BRP helpers, scaffold, and MCP server.
 
 mod mcp;
+mod component_paths;
 mod launch_plan;
 mod scaffold;
 
