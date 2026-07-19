@@ -325,7 +325,35 @@ impl CapturedImage {
         })
     }
 
-    /// MCP tool content block (image) plus a short text note.
+    /// Absolute path for agents when chat UI truncates the image payload.
+    pub fn absolute_path_display(&self) -> String {
+        match self.path.canonicalize() {
+            Ok(p) => p.display().to_string(),
+            Err(_) if self.path.is_absolute() => self.path.display().to_string(),
+            Err(_) => std::env::current_dir()
+                .map(|cwd| cwd.join(&self.path).display().to_string())
+                .unwrap_or_else(|_| self.path.display().to_string()),
+        }
+    }
+
+    /// Text metadata always returned with captures (path + size survive UI truncation).
+    pub fn metadata_text(&self) -> String {
+        let dims = match (self.width_hint, self.height_hint) {
+            (Some(w), Some(h)) => format!(" dims={w}x{h}"),
+            _ => String::new(),
+        };
+        format!(
+            "Captured PNG bytes={}{} path={} abs_path={} mime={} \
+             note=if the chat UI truncates image bytes, open abs_path on disk",
+            self.byte_len,
+            dims,
+            self.path.display(),
+            self.absolute_path_display(),
+            self.mime_type
+        )
+    }
+
+    /// MCP tool content block (image) plus text with **absolute path + size**.
     pub fn to_mcp_content_blocks(&self) -> Value {
         json!([
             {
@@ -335,15 +363,7 @@ impl CapturedImage {
             },
             {
                 "type": "text",
-                "text": format!(
-                    "Captured PNG ({} bytes{}) from {}",
-                    self.byte_len,
-                    match (self.width_hint, self.height_hint) {
-                        (Some(w), Some(h)) => format!(", {w}x{h}"),
-                        _ => String::new(),
-                    },
-                    self.path.display()
-                )
+                "text": self.metadata_text()
             }
         ])
     }
@@ -463,6 +483,10 @@ mod tests {
         assert_eq!(arr[0]["mimeType"], "image/png");
         assert_eq!(arr[0]["data"], img.png_base64);
         assert_eq!(arr[1]["type"], "text");
+        let text = arr[1]["text"].as_str().unwrap();
+        assert!(text.contains("bytes="));
+        assert!(text.contains("abs_path="));
+        assert!(text.contains(&format!("{}", img.byte_len)));
     }
 
     #[test]
@@ -472,6 +496,12 @@ mod tests {
         fs::write(&path, fixture_png_bytes()).unwrap();
         let img = CapturedImage::from_png_path(&path).unwrap();
         assert_eq!(img.path, path);
+        let meta = img.metadata_text();
+        assert!(meta.contains("abs_path="));
+        assert!(meta.contains("bytes="));
+        // abs_path should be absolute after canonicalize
+        let abs = img.absolute_path_display();
+        assert!(PathBuf::from(&abs).is_absolute() || abs.contains("scene.png"));
         assert!(img.byte_len > 0);
         validate_png_header(&B64.decode(&img.png_base64).unwrap()).unwrap();
     }

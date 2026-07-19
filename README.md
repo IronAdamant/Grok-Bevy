@@ -6,6 +6,20 @@ Grok-Bevy is an open-source companion for people who want help from an AI assist
 
 > **Public demo.** This repo is a working demonstration of agent-native Bevy tooling. Use it to learn the workflow, dogfood it, and adapt it for your own projects.
 
+### Portfolio showcase (2D vertical slice)
+
+External dogfood: a standalone Bevy **0.19** mining-drone game (**Crystal Drift**) was scaffolded with `grok-bevy scaffold --kind 2d`, then iterated with the agent loop. Placeholder art is fine — the point is a **real playable loop** plus **live MCP control**.
+
+![Crystal Drift gameplay — score, fuel, player, asteroids, mining laser](docs/images/crystal-drift-play.png)
+
+*Live play capture via `brp_extras/screenshot` / `bevy_capture_viewport` (features `remote,capture`).*
+
+![Agent MCP loop — BRP query, mutate player translation, re-query, screenshot](docs/images/crystal-drift-mcp-loop.png)
+
+*Portfolio MCP sequence: **query → mutate → re-query confirm → screenshot** on a warm binary (BRP port **15702**).*
+
+This slice launches **straight into Playing** (no main menu) by design. In-repo **`demo_2d` / `demo_3d`** still follow the full [GAME_DOD](docs/GAME_DOD.md) (menu, objective, win/lose, pause).
+
 ---
 
 ## Who this is for
@@ -109,7 +123,7 @@ grok-bevy mcp-config
 
 **Other MCP clients** (Cursor, Claude Code, Continue, Cline, etc.): register a stdio MCP server that runs `grok-bevy mcp` the same way you register any local MCP tool.
 
-Restart or reload MCP so the agent sees tools like `bevy_env_check`, `bevy_launch_app`, `bevy_capture_viewport`, and `bevy_workflow`.
+Restart or reload MCP so the agent sees tools like `bevy_env_check`, `bevy_launch_app`, `bevy_wait_brp`, `bevy_capture_viewport`, and `bevy_workflow`.
 
 ### 4. Play the in-repo short demos (dogfood)
 
@@ -148,7 +162,9 @@ Controls and objectives are in each game’s README.
 
 With the game running (`remote,capture` features) and MCP connected, ask your assistant something like:
 
-> Check Bevy readiness, wait for the game on port 15702, query the scene, and capture a screenshot of the window.
+> Check Bevy readiness, wait for the game on port 15702, query the scene, mutate the player if needed, and capture a screenshot of the window.
+
+**Cold first compile:** prefer shell `cargo run --features remote,capture` (or `cargo build` then run). **MCP** `bevy_launch_app` is non-blocking by default — follow with **`bevy_wait_brp`** (e.g. `timeout_secs` 180 cold / 30 warm). Warm binary + query → mutate → re-query → capture is the portfolio-proven loop above.
 
 Or: use the MCP prompt **`start_2d_game`** / **`start_3d_game`**, or the **`bevy_workflow`** tool with goal `new_2d`, `new_3d`, `verify_scene`, or `ship`.
 
@@ -161,11 +177,12 @@ More detail: [docs/FAST_START.md](docs/FAST_START.md) · [docs/PRODUCTION_GAMES.
 | Tool (name) | Everyday meaning |
 |-------------|------------------|
 | `bevy_env_check` | Is this computer ready to build Bevy games? |
-| `bevy_launch_app` | Start my game with remote control turned on |
+| `bevy_launch_app` | Start my game (non-blocking; prefer after a warm build) |
+| `bevy_wait_brp` | Wait until BRP answers on the port |
 | `bevy_brp_query` | What entities/components exist right now? |
 | `bevy_brp_mutate` | Change a value on a live object (e.g. position) |
 | `bevy_capture_viewport` | **Screenshot the game window** for the agent to “see” |
-| `bevy_workflow` | Step-by-step plan: which skills + tools for a goal |
+| `bevy_workflow` | Step-by-step plan: which skills + tools for a goal (router, not autopilot) |
 | `bevy_brp_mcp_status` | Is the optional full Bevy BRP MCP installed? |
 
 **MCP prompts** (shortcuts for agents): `start_2d_game`, `start_3d_game`, `iterate_scene`, `prepare_ship`.
@@ -240,7 +257,9 @@ Full guide: [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
 
 - **Doctor not READY** — install Rust via rustup; follow OS tips (Xcode CLT / MSVC / Linux packages).  
 - **Agent can’t connect** — game must run with `--features remote,capture`; default port **15702**.  
+- **Launch “timed out”** — cold Bevy compile can exceed MCP tool budgets; use shell for the first build, then `bevy_wait_brp`.  
 - **Black screenshot** — keep the game window visible (not minimized).  
+- **Query conflict (Bevy B0001)** — overlapping `Query<&mut T>`; use `Without`, markers, or `ParamSet` when growing systems.  
 - **First compile is slow** — normal for Bevy; later builds are faster.  
 
 ---

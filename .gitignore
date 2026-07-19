@@ -21,6 +21,9 @@ Thumbs.db
 !fixtures/**/*.png
 # Production template disk assets (required by scaffold --kind 2d|3d)
 !templates/**/*.png
+# Portfolio / README screenshots (tracked)
+!docs/images/
+!docs/images/**/*.png
 *.log
 .scratch/
 tmp/
@@ -46,13 +49,13 @@ journal/
 # Local package output
 /dist/
 
-# Private external-game dogfood (may become commercial / portfolio later — keep out of OSS)
+# Full external-game dogfood reports (session dumps; keep out of OSS for now)
+# Portfolio README may show sanitized screenshots under docs/images/ only.
 docs/AGENT_DOGFOOD_REPORT_*
-docs/*IRON*
-docs/*FEUD*
-docs/*external_game*
+docs/*CRYSTAL*
+docs/*crystal_drift*
+*CRYSTAL_DRIFT*
+**/Crystal Drift/**
+**/crystal-drift/**/captures/**
 .local/dogfood/
 private/dogfood/
-**/external_game/**
-**/external dogfood project/**
-*EXTERNAL_GAME*

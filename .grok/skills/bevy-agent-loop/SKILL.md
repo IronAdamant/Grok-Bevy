@@ -18,18 +18,25 @@ You control a **running** Bevy app. Prefer evidence from **viewport capture** ov
 - App must enable features **`remote,capture`** and add `BrpExtrasPlugin` when `remote` is on  
 - Prefer full **`bevy_brp_mcp`** when installed for hierarchy/watches/input  
 
-## Standard loop
+## Standard loop (hard requirements)
 
 1. **`bevy_env_check`** (or CLI `grok-bevy doctor`) if the host is unknown.  
-2. **Launch**  
-   - **Cold first compile:** prefer shell/background `cargo run --features remote,capture` (MCP host tool timeouts can kill long compiles).  
-   - **Warm / already built:** MCP `bevy_launch_app` with `manifest_path` + `features: "remote,capture"` and **`wait_secs: 0`** (default; returns immediately).  
+2. **Launch — never block MCP on cold Bevy compile**  
+   - **Cold first compile (no `target/debug/<package>`):** shell/background  
+     `cargo run --features remote,capture` (or `cargo build` then run).  
+   - **Warm binary exists:** MCP `bevy_launch_app` with `manifest_path` +  
+     `features: "remote,capture"` and **`wait_secs: 0`** (default; returns immediately; may spawn the debug binary).  
+   - **Always** next: step 3. Do **not** set high `wait_secs` on launch (host tool timeouts ~120s).  
 3. **Wait** with MCP **`bevy_wait_brp`** (`timeout_secs` **180** cold / **30** warm) or CLI `grok-bevy brp wait --timeout-secs 180`.  
 4. **Query** named entities / transforms (`bevy_brp_query`).  
 5. **Mutate** if needed (`bevy_brp_mutate` — fully-qualified Reflect type paths).  
-6. **`bevy_capture_viewport`** — **look at the image**; describe defects honestly.  
+6. **`bevy_capture_viewport`** — read the image; if chat truncates bytes, open **`abs_path`** from the text block.  
 7. **Fix code or assets** → rebuild/restart if needed → capture again.  
 8. Stop when the capture matches the acceptance criteria.
+
+### Dual launch / one BRP port
+
+Default BRP port is **15702**. Only **one** app should bind that port. Dual `cargo run` is fine for “start A, stop A, start B” smoke tests — not two simultaneous instances on the same port. For two live apps, register distinct ports/targets (`bevy_register_target`) and change `BrpExtrasPlugin` / env port on the second.
 
 ## Tool map (grok-bevy MCP)
 
@@ -94,7 +101,7 @@ Same port; complementary to grok-bevy’s focused tools.
 | Symptom | Check |
 |---------|--------|
 | Connection refused | App not running / missing `remote` / wrong port; call `bevy_wait_brp` |
-| Launch MCP timeout (legacy) | Use non-blocking launch + `bevy_wait_brp`; cold compile via shell |
+| Launch MCP timeout | `wait_secs=0` + `bevy_wait_brp`; cold = shell `cargo run`; warm = debug binary |
 | Black screenshot | Minimized window; no lights; camera wrong way |
 | Empty query / still Loading | Wrong type path; asset root (see ASSET_CONVENTIONS); wait for fail-forward timeout |
 | Mutate no-op | Path wrong; type not Reflect; wrong entity id |

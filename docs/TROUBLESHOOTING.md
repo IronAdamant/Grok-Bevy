@@ -79,6 +79,10 @@ The running app needs `bevy_brp_extras` (`capture` / `remote` features on the sa
 
 Also enable Bevy’s `png` feature.
 
+### MCP image truncated in chat UI
+
+`bevy_capture_viewport` returns image **and** text with `bytes=…` and **`abs_path=…`**. If the client drops large base64 images, open the absolute path on disk.
+
 ### Black or empty PNG
 
 Known limitation: minimized, hidden, or fully occluded primary windows may produce black frames on some platforms. Success means the PNG is fully written — not that pixels are nonuniform.
@@ -114,14 +118,26 @@ Or: `grok-bevy mcp --delegate-brp-mcp` (requires `bevy_brp_mcp` on `PATH`).
 
 ### MCP `bevy_launch_app` used to hang ~120s
 
-`bevy_launch_app` is **non-blocking by default** (`wait_secs=0`). It returns `status=spawned` + log path immediately.
+`bevy_launch_app` is **non-blocking by default** (`wait_secs=0`). It returns `status=spawned` + log path immediately. When `target/debug/<package>` exists it prefers that **warm binary**; otherwise it runs cold `cargo run` and labels `mode=cold_cargo_run`.
 
 1. Call **`bevy_wait_brp`** with `timeout_secs` **180** (cold) or **30** (warm).  
 2. Then `bevy_brp_discover` / query / `bevy_capture_viewport`.  
 3. For **cold first compiles**, prefer shell/background `cargo run --features remote,capture` so the host MCP `tool_timeout_sec` cannot kill a long compile.  
-4. Optional: `wait_secs` on launch is capped at **60** (warm restarts only).
+4. Optional: `wait_secs` on launch is capped at **60** (warm restarts only). Do **not** use long wait on launch for cold builds.
 
 CLI equivalent: `grok-bevy brp wait --port 15702 --timeout-secs 180`.
+
+### Two apps / dual launch on port 15702
+
+Only one process can listen on the default BRP port. Dual launch for dogfood means sequential starts (or different ports). Use `bevy_register_target` for multi-instance with distinct ports.
+
+### Scaffold into `.` or monorepo root fails
+
+Scaffold **refuses** `--path .` (even with `--force`) so it never wipes the current directory. Use a subdirectory:
+
+```bash
+grok-bevy scaffold --kind 2d --path ./my-game --name my-game
+```
 
 ### Stuck on Loading / empty Name queries
 

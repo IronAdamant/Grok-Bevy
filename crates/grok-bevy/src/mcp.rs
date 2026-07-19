@@ -565,7 +565,7 @@ fn tool_defs() -> Value {
         },
         {
             "name": "bevy_launch_app",
-            "description": "Spawn a Bevy app via cargo run (non-blocking by default). Sets cwd to the package dir. Prefer remote+capture features. For cold first compiles prefer shell cargo run; then call bevy_wait_brp. Logs go to a temp file.",
+            "description": "Spawn a Bevy app (non-blocking, wait_secs=0 default). Uses target/debug binary when warm; otherwise cargo run (cold). Prefer shell cargo run for first compile. ALWAYS follow with bevy_wait_brp before query/capture. Sets cwd to package dir. Logs to a temp file.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -758,6 +758,7 @@ async fn call_tool(name: &str, args: Value, state: Arc<Mutex<ServerState>>) -> R
                 capture_viewport_image(&client, PathBuf::from(path))
             })
             .await??;
+            // Image + text (abs_path + bytes) so agents survive chat UI truncation.
             Ok(json!({
                 "content": img.to_mcp_content_blocks(),
                 "isError": false
@@ -796,6 +797,14 @@ async fn call_tool(name: &str, args: Value, state: Arc<Mutex<ServerState>>) -> R
                 .map(|p| p.to_path_buf())
                 .unwrap_or_else(|| PathBuf::from("."));
 
+            // Resolve package name for warm-binary detection.
+            let pkg_name = {
+                let cargo_txt = std::fs::read_to_string(&manifest_path).unwrap_or_default();
+                crate::launch_plan::parse_package_name_from_cargo_toml(&cargo_txt)
+                    .unwrap_or_else(|| name.replace('-', "_"))
+            };
+            let mode = crate::launch_plan::resolve_launch_mode(&package_dir, &pkg_name);
+
             let log_path = std::env::temp_dir().join(format!(
                 "grok-bevy-launch-{}-{}.log",
                 name,
@@ -805,32 +814,60 @@ async fn call_tool(name: &str, args: Value, state: Arc<Mutex<ServerState>>) -> R
                 .with_context(|| format!("create log {}", log_path.display()))?;
             let log_err = log_file.try_clone()?;
 
-            let mut cmd = Command::new("cargo");
-            cmd.arg("run")
-                .arg("--manifest-path")
-                .arg(&manifest)
-                .arg("--features")
-                .arg(&features)
-                .current_dir(&package_dir)
-                .stdin(Stdio::null())
-                .stdout(Stdio::from(log_file))
-                .stderr(Stdio::from(log_err))
-                .kill_on_drop(true);
+            let mut cmd = match &mode {
+                crate::launch_plan::LaunchMode::WarmBinary { binary } => {
+                    let mut c = Command::new(binary);
+                    c.current_dir(&package_dir)
+                        .stdin(Stdio::null())
+                        .stdout(Stdio::from(log_file))
+                        .stderr(Stdio::from(log_err))
+                        .kill_on_drop(true);
+                    c
+                }
+                crate::launch_plan::LaunchMode::ColdCargoRun => {
+                    let mut c = Command::new("cargo");
+                    c.arg("run")
+                        .arg("--manifest-path")
+                        .arg(&manifest)
+                        .arg("--features")
+                        .arg(&features)
+                        .current_dir(&package_dir)
+                        .stdin(Stdio::null())
+                        .stdout(Stdio::from(log_file))
+                        .stderr(Stdio::from(log_err))
+                        .kill_on_drop(true);
+                    c
+                }
+            };
 
-            let child = cmd.spawn().context("spawn cargo run")?;
+            let child = cmd.spawn().context("spawn game process")?;
             {
                 let mut st = state.lock().await;
                 st.child = Some(child);
                 st.targets.register(BrpTarget::new(&name, port));
             }
 
+            let spawn_msg = crate::launch_plan::format_launch_spawn_message(
+                &mode,
+                &manifest,
+                &features,
+                port,
+                &name,
+                &package_dir,
+                &log_path,
+                wait_secs,
+            );
+
             if wait_secs == 0 {
-                return text_result(format!(
-                    "status=spawned manifest={manifest} features={features} port={port} target={name} \
-                     cwd={} log={} note=call bevy_wait_brp (timeout_secs 180 cold / 30 warm) before query/capture",
-                    package_dir.display(),
-                    log_path.display()
-                ));
+                let cold_hint = if matches!(mode, crate::launch_plan::LaunchMode::ColdCargoRun) {
+                    format!(
+                        "\n{}",
+                        crate::launch_plan::format_missing_warm_binary(&package_dir, &pkg_name)
+                    )
+                } else {
+                    String::new()
+                };
+                return text_result(format!("{spawn_msg}{cold_hint}"));
             }
 
             let client = BrpClient::with_port(port);
@@ -841,13 +878,11 @@ async fn call_tool(name: &str, args: Value, state: Arc<Mutex<ServerState>>) -> R
 
             match wait {
                 Ok(_) => text_result(format!(
-                    "status=ready manifest={manifest} features={features} port={port} target={name} log={}",
-                    log_path.display()
+                    "status=ready {spawn_msg}"
                 )),
                 Err(e) => text_result(format!(
-                    "status=timeout manifest={manifest} port={port} target={name} error={e} log={} \
-                     note=app may still be compiling; call bevy_wait_brp again or use shell cargo run for cold builds",
-                    log_path.display()
+                    "status=timeout error={e} {spawn_msg} \
+                     note=app may still be compiling; call bevy_wait_brp again or use shell cargo run for cold builds"
                 )),
             }
         }

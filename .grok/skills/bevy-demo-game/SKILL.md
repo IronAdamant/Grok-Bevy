@@ -52,15 +52,24 @@ You are finishing a **playable short demo**, not a movement sandbox.
 - Procedural-only forever with no `assets/`  
 - Cube BRP fixture sold as the demo  
 
+## Portfolio / one-shot slices (optional path)
+
+If the user wants a **portfolio vertical slice** that skips MainMenu (direct Loading → Playing):
+
+- Allowed only when they **explicitly** ask for one-shot / no-menu.  
+- Still require: objective, challenge, at least GameOver (or Victory), `remote,capture`, disk assets, named Player.  
+- Document the choice in the game README.  
+- Default for “short demo” / monorepo dogfood remains **full GAME_DOD** (menu + pause + end).
+
 ## Capture acceptance (agent)
 
 Before claiming done, capture (or obtain captures of):
 
-1. Main menu  
+1. Main menu (skip only for explicit one-shot portfolio)  
 2. Mid-play with objective visible  
 3. Win or lose screen  
 
-Use MCP: `bevy_launch_app` → `bevy_capture_viewport` (skill `bevy-agent-loop`).
+Use MCP: shell or `bevy_launch_app` (`wait_secs=0`) → **`bevy_wait_brp`** → `bevy_capture_viewport` (skill `bevy-agent-loop`).
 
 ## Workflow MCP
 

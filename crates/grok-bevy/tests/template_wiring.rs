@@ -135,6 +135,11 @@ fn production_2d_template_is_playable_slice() {
     );
     let lib = fs::read_to_string(root.join("src/lib.rs")).unwrap();
     assert!(lib.contains("cfg(feature = \"physics\")"));
+    let gameplay = fs::read_to_string(root.join("src/systems/gameplay.rs")).unwrap();
+    assert!(
+        gameplay.contains("Without<") && gameplay.contains("With<Player>"),
+        "2d gameplay must use Without filters (B0001 guardrails)"
+    );
 }
 
 #[test]
@@ -155,6 +160,11 @@ fn production_3d_template_is_playable_slice() {
     assert!(cargo.contains("default = []"));
     let lib = fs::read_to_string(root.join("src/lib.rs")).unwrap();
     assert!(lib.contains("cfg(feature = \"physics\")"));
+    let gameplay = fs::read_to_string(root.join("src/systems/gameplay.rs")).unwrap();
+    assert!(
+        gameplay.contains("Without<"),
+        "3d gameplay must use Without filters (B0001 guardrails)"
+    );
 }
 
 /// GAME_DOD: short demos need objective, challenge, win/lose — not movement-only.

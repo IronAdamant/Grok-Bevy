@@ -1,6 +1,7 @@
 //! Grok-Bevy CLI — environment doctor, BRP helpers, scaffold, and MCP server.
 
 mod mcp;
+mod launch_plan;
 mod scaffold;
 
 use anyhow::{bail, Context, Result};

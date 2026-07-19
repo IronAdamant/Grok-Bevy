@@ -229,6 +229,58 @@ pub fn scaffold_app(
     scaffold_app_with_root(dest, kind, package_name, force, None)
 }
 
+/// True when scaffolding would wipe the current working directory (or `.`).
+///
+/// Used to refuse `scaffold --path . --force` which previously called
+/// `remove_dir_all(".")` and failed opaquely / dangerously.
+pub fn is_cwd_or_dot_dest(dest: &Path) -> bool {
+    if dest.as_os_str().is_empty() {
+        return true;
+    }
+    if dest == Path::new(".") || dest == Path::new("./") {
+        return true;
+    }
+    if dest.components().all(|c| matches!(c, std::path::Component::CurDir)) {
+        return true;
+    }
+    let Ok(cwd) = std::env::current_dir() else {
+        return false;
+    };
+    if dest == cwd {
+        return true;
+    }
+    if let (Ok(d), Ok(c)) = (dest.canonicalize(), cwd.canonicalize()) {
+        return d == c;
+    }
+    false
+}
+
+/// Validate destination before copy. Returns clear guidance instead of wiping `.`.
+pub fn validate_scaffold_destination(dest: &Path, force: bool) -> Result<()> {
+    if is_cwd_or_dot_dest(dest) {
+        bail!(
+            "refusing to scaffold into the current directory (path `{}`). \
+             Scaffolding with --force would wipe this folder. \
+             Use a subdirectory instead, e.g. `grok-bevy scaffold --kind 2d --path ./my-game --name my-game`",
+            dest.display()
+        );
+    }
+    if dest.exists() {
+        if !force {
+            bail!(
+                "destination {} already exists. Pass --force to overwrite a *dedicated* game dir, \
+                 or use a new subdirectory (e.g. --path ./my-game). \
+                 Never point --path at a monorepo root or `.`",
+                dest.display()
+            );
+        }
+        if !dest.is_dir() {
+            bail!("{} exists and is not a directory", dest.display());
+        }
+    }
+    Ok(())
+}
+
 /// Scaffold using an explicit template root (tests / forced embedded path).
 ///
 /// When `template_root_override` is `None`, uses [`template_root`].
@@ -239,6 +291,8 @@ pub fn scaffold_app_with_root(
     force: bool,
     template_root_override: Option<&Path>,
 ) -> Result<()> {
+    validate_scaffold_destination(dest, force)?;
+
     let pkg = normalize_package_name(package_name.unwrap_or(&default_package_name(dest, kind)));
     let title = match kind {
         ScaffoldKind::TwoD => format!("{pkg} (2D)"),
@@ -256,18 +310,9 @@ pub fn scaffold_app_with_root(
     }
 
     if dest.exists() {
-        if !force {
-            bail!(
-                "destination {} already exists (pass --force to overwrite)",
-                dest.display()
-            );
-        }
-        if dest.is_dir() {
-            fs::remove_dir_all(dest)
-                .with_context(|| format!("remove existing {}", dest.display()))?;
-        } else {
-            bail!("{} exists and is not a directory", dest.display());
-        }
+        // force already validated; safe dedicated dir only
+        fs::remove_dir_all(dest)
+            .with_context(|| format!("remove existing {}", dest.display()))?;
     }
     fs::create_dir_all(dest).with_context(|| format!("create {}", dest.display()))?;
 
@@ -621,6 +666,10 @@ mod tests {
         assert!(gameplay.contains("player_movement"));
         assert!(gameplay.contains("KeyCode"));
         assert!(gameplay.contains("ButtonInput"));
+        assert!(
+            gameplay.contains("Without<"),
+            "scaffolded 2d gameplay must include Without filters"
+        );
 
         let states = fs::read_to_string(dest.join("src/states.rs")).unwrap();
         assert!(states.contains("MainMenu") && states.contains("Playing"));
@@ -682,5 +731,38 @@ mod tests {
         assert!(dest.join("src/main.rs").is_file());
         assert!(dest.join("AGENTS.md").is_file());
         assert!(dest.join("assets/sprites").is_dir());
+    }
+
+    #[test]
+    fn refuse_scaffold_into_dot_even_with_force() {
+        let err = validate_scaffold_destination(Path::new("."), true).unwrap_err();
+        let s = err.to_string();
+        assert!(
+            s.contains("current directory") || s.contains("subdirectory"),
+            "expected clear subdir guidance, got: {s}"
+        );
+        assert!(s.contains("my-game") || s.contains("--path"));
+    }
+
+    #[test]
+    fn refuse_scaffold_existing_without_force_mentions_subdir() {
+        let dir = tempfile::tempdir().unwrap();
+        let dest = dir.path().join("taken");
+        fs::create_dir_all(&dest).unwrap();
+        let err = validate_scaffold_destination(&dest, false).unwrap_err();
+        let s = err.to_string();
+        assert!(s.contains("already exists"));
+        assert!(s.contains("subdirectory") || s.contains("--force") || s.contains("my-game"));
+    }
+
+    #[test]
+    fn force_overwrite_dedicated_subdir_ok() {
+        let dir = tempfile::tempdir().unwrap();
+        let dest = dir.path().join("fresh_game");
+        fs::create_dir_all(&dest).unwrap();
+        fs::write(dest.join("junk.txt"), b"x").unwrap();
+        scaffold_app(&dest, ScaffoldKind::TwoD, Some("fresh_game"), true).unwrap();
+        assert!(dest.join("Cargo.toml").is_file());
+        assert!(!dest.join("junk.txt").exists());
     }
 }

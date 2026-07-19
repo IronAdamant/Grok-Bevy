@@ -110,7 +110,7 @@ pub fn gameplay_setup(
 pub fn player_movement(
     keys: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-    mut q: Query<&mut Transform, With<Player>>,
+    mut q: Query<&mut Transform, (With<Player>, Without<Hazard>, Without<Pickup>)>,
 ) {
     let Ok(mut tf) = q.single_mut() else {
         return;
@@ -134,7 +134,10 @@ pub fn player_movement(
     }
 }
 
-pub fn hazard_patrol_sine(time: Res<Time>, mut q: Query<&mut Transform, With<Hazard>>) {
+pub fn hazard_patrol_sine(
+    time: Res<Time>,
+    mut q: Query<&mut Transform, (With<Hazard>, Without<Player>, Without<Pickup>)>,
+) {
     let t = time.elapsed_secs();
     for mut tf in &mut q {
         tf.translation.x = (t * 1.2).sin() * 5.0;
@@ -147,8 +150,8 @@ pub fn collect_pickups(
     mut commands: Commands,
     mut progress: ResMut<RunProgress>,
     mut next: ResMut<NextState<AppState>>,
-    player_q: Query<&Transform, With<Player>>,
-    pickups: Query<(Entity, &Transform), With<Pickup>>,
+    player_q: Query<&Transform, (With<Player>, Without<Pickup>, Without<Hazard>)>,
+    pickups: Query<(Entity, &Transform), (With<Pickup>, Without<Player>)>,
 ) {
     let Ok(player_tf) = player_q.single() else {
         return;
@@ -167,8 +170,8 @@ pub fn collect_pickups(
 
 pub fn hazard_collision(
     mut next: ResMut<NextState<AppState>>,
-    player_q: Query<&Transform, With<Player>>,
-    hazards: Query<&Transform, With<Hazard>>,
+    player_q: Query<&Transform, (With<Player>, Without<Hazard>)>,
+    hazards: Query<&Transform, (With<Hazard>, Without<Player>)>,
 ) {
     let Ok(player_tf) = player_q.single() else {
         return;
@@ -185,7 +188,7 @@ pub fn hazard_collision(
 /// Challenge: leave the platform → game over.
 pub fn fall_off_world(
     mut next: ResMut<NextState<AppState>>,
-    player_q: Query<&Transform, With<Player>>,
+    player_q: Query<&Transform, (With<Player>, Without<Hazard>)>,
 ) {
     let Ok(tf) = player_q.single() else {
         return;

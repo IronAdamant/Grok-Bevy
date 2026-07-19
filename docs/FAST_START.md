@@ -35,7 +35,7 @@ grok mcp add bevy-brp -- bevy_brp_mcp
 
 Or paste the TOML from `grok-bevy mcp-config` into `~/.grok/config.toml`.
 
-Templates are **embedded** in the CLI (G6); monorepo/`GROK_BEVY_TEMPLATE_ROOT` are optional overrides. Launch is non-blocking; use MCP `bevy_wait_brp` (or CLI `brp wait`) after start.
+Templates are **embedded** in the CLI (G6); monorepo/`GROK_BEVY_TEMPLATE_ROOT` are optional overrides. Launch is non-blocking (`wait_secs=0`); always call MCP `bevy_wait_brp` (or CLI `brp wait`) after start. Cold first compile: shell `cargo run --features remote,capture`. Scaffold into a **subdir**, never `--path .`.
 
 ### 4. Start the sample (terminal A)
 
