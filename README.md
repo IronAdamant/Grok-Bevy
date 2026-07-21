@@ -39,10 +39,25 @@ You do **not** need to be a Rust expert to start. You will need a normal develop
 
 1. **“Is my PC ready for Bevy?”** — `grok-bevy doctor` checks Rust and your OS, then suggests fixes.  
 2. **“Start a game project for me.”** — Scaffold a **2D** or **3D** starter (or a simple demo cube for testing).  
-3. **“Let my AI play with the running game.”** — An **MCP server** so the agent can query the world, tweak values, and **capture the viewport as an image**.  
+3. **“Let my AI play with the running game.”** — An **MCP server** so the agent can query the world, tweak values, and **see the viewport** (screenshots + structured eyesight packets).  
 4. **“How should the AI build a real game?”** — Built-in **Grok skills** (playbooks) for production structure, not one-file demos.
 
 **Skills define how to build. Scaffold defines where files go. MCP verifies what is on screen.**
+
+### Agent eyesight — what it is (and is not)
+
+Grok-Bevy gives agents (and any human using the same MCP tools) **live eyes on a running Bevy window**: full-scene capture, named subjects, true-fovea entity crops, motion strips, multi-view packs, baselines/diffs, and diagnostic bounds (`bevy_see_*` / `grok-bevy see`). **Observation-grade ~20/20 acuity** is implemented (state gate, world→screen fovea, subject filter, multi-view, temporal notes) — see [docs/AGENT_EYESIGHT_20_20_PLAN.md](docs/AGENT_EYESIGHT_20_20_PLAN.md) (baseline: [docs/AGENT_EYESIGHT_PLAN.md](docs/AGENT_EYESIGHT_PLAN.md)).
+
+**Honest scope:**
+
+| The tooling does | The tooling does **not** |
+|------------------|---------------------------|
+| Let the agent **see** what the player sees | Own **taste**, art direction, or “is this good design?” |
+| Bind pixels to **named entities** and motion | Replace a human creative director |
+| Help the agent **build to your requirements** with evidence | Auto-beautify or score beauty |
+| Serve **human devs** who drive the same MCP | Turn Grok-Bevy into a Bevy **editor** |
+
+**Taste and design stay with human developers.** The agent is here to **see** and **implement** what you need — not to decide what looks “right” for your game.
 
 ---
 
@@ -54,7 +69,7 @@ Most AI coding chats only see source files. Game work also needs:
 - What does the **player actually see**?  
 - Can the agent **change a transform** and re-check without guessing?
 
-Grok-Bevy wires that loop using the **Bevy Remote Protocol (BRP)** and optional [bevy_brp_mcp](https://github.com/natepiano/bevy_brp) / [bevy_brp_extras](https://crates.io/crates/bevy_brp_extras). Your agent (Grok Build or another MCP-compatible LLM client) can treat a live Bevy app like a controllable environment: **launch → query → mutate → screenshot → fix → repeat**.
+Grok-Bevy wires that loop using the **Bevy Remote Protocol (BRP)** and optional [bevy_brp_mcp](https://github.com/natepiano/bevy_brp) / [bevy_brp_extras](https://crates.io/crates/bevy_brp_extras). Your agent (Grok Build or another MCP-compatible LLM client) can treat a live Bevy app like a controllable environment: **launch → wait BRP → see (scene/entity/motion/pack) → mutate → re-see → fix → repeat**.
 
 That makes this project useful if you are searching for phrases like:
 

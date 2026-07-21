@@ -3,7 +3,8 @@
 **Status:** implemented (V0–V6 shipped; dogfood Crystal Drift + Iron Feud, 2026-07-21)  
 **Audience:** agents implementing Grok-Bevy infrastructure; humans setting goals  
 **Identity:** Grok-Bevy is **agent assistant infrastructure**, not a Bevy editor.  
-**This plan’s job:** give the **agent** reliable **eyesight** so it can judge graphics and motion the way a human would — then refine code, assets, and params until appearance and physics *look right*.
+**This plan’s job:** give the **agent** reliable **eyesight** (baseline — eyes open).  
+**Next (acuity 20/20):** [AGENT_EYESIGHT_20_20_PLAN.md](AGENT_EYESIGHT_20_20_PLAN.md) — observation-grade focus/multi-view/subjects; **taste/design remain human-owned**.
 
 Related:
 
@@ -12,7 +13,8 @@ Related:
 - Demo completeness: [GAME_DOD.md](GAME_DOD.md)  
 - Art discipline: Grok `game-asset-core` (+ specialists)  
 - Product roadmap: [ROADMAP.md](ROADMAP.md)  
-- Progress tracking: [PROGRESS.md](../PROGRESS.md)
+- Progress tracking: [PROGRESS.md](../PROGRESS.md)  
+- 20/20 acuity plan: [AGENT_EYESIGHT_20_20_PLAN.md](AGENT_EYESIGHT_20_20_PLAN.md)
 
 ---
 

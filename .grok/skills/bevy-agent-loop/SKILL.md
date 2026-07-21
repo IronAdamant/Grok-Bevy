@@ -21,15 +21,21 @@ Plan: `docs/AGENT_EYESIGHT_PLAN.md` (schema `grok-bevy.eyesight/v1`).
 - App must enable features **`remote,capture`** and add `BrpExtrasPlugin` when `remote` is on  
 - Prefer full **`bevy_brp_mcp`** when installed for hierarchy/watches/input  
 
-## Eyesight rules (hard — V0 discipline)
+## Eyesight rules (hard — baseline + 20/20 acuity)
+
+Plan: `docs/AGENT_EYESIGHT_PLAN.md` (eyes open) + `docs/AGENT_EYESIGHT_20_20_PLAN.md` (acuity).
 
 1. **Pixels are primary.** Query without opening captures is not eyesight.  
 2. **Open every PNG** returned (`abs_path` if chat truncates image bytes).  
-3. **Aesthetic / physics-feel claims must cite capture paths** (and preferably what you saw).  
-4. **Refine with compare:** baseline → change → `bevy_see_diff` or second `bevy_see_scene`.  
-5. **Subject classes:** entity, landscape, water, fx, lighting, ui, physics_motion — pick a pack when needed.  
-6. **Style intent:** when refining art, pass `style_intent` and chain to `game-asset-core` if the look is wrong.  
-7. **Black-frame warning** in packets: check minimized window, lights, camera, Loading state — do not invent beauty.
+3. **Observation claims must cite capture paths** — what you *saw*, not taste lectures.  
+4. **Taste/design stay human-owned** — build to their requirements; do not claim AI art director.  
+5. **State gate (A0):** Iron Feud env claims need Playing (`IRON_FEUD_AUTO_PLAY=1`). Use `require_playing` / `wait_for_subjects`.  
+6. **True fovea (A1):** `bevy_see_entity` with projection (`ortho2d` / `topdown3d`) — not center guess when Name+Transform exist.  
+7. **Multi-view (A2):** env → `bevy_see_pack landscape|water` (game + alt view).  
+8. **Motion (A3):** physics/feel → `bevy_see_motion` + stimulus note; static_scene warning is honest.  
+9. **Clean subjects (A4):** default `subject_filter=gameplay_prefer`.  
+10. **Diff (A5):** `save_baseline` / `compare_baseline` or `bevy_see_diff` after visual changes.  
+11. **Black-frame warning:** empty window — dark space with sprites is not empty.
 
 ## Standard loop (hard requirements)
 

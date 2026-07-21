@@ -8,8 +8,9 @@
 use anyhow::{anyhow, Context, Result};
 use grok_bevy_brp::{
     capture_viewport_image, packet_to_mcp_content, see_diff, see_entity, see_motion, see_pack,
-    see_region, see_scene, BrpClient, BrpTarget, CapturedImage, SeeOptions, TargetRegistry,
-    DEFAULT_CROP_HALF, DEFAULT_MOTION_FRAMES, DEFAULT_MOTION_INTERVAL_MS, DEFAULT_PORT,
+    see_region, see_scene, BrpClient, BrpTarget, CapturedImage, ProjectionMode, SeeOptions,
+    SubjectFilterMode, TargetRegistry, DEFAULT_CROP_HALF, DEFAULT_MAX_SUBJECTS,
+    DEFAULT_MOTION_FRAMES, DEFAULT_MOTION_INTERVAL_MS, DEFAULT_PORT,
 };
 use grok_bevy_env::{check_readiness, DoctorOptions, SystemCommandRunner};
 use serde_json::{json, Value};
@@ -146,9 +147,10 @@ pub fn mcp_instructions() -> String {
         "MCP prompts: start_2d_game, start_3d_game, build_demo_2d, build_demo_3d, iterate_scene, prepare_ship, package_demo. ",
         "bevy_workflow goals: new_2d|new_3d|complete_demo_2d|complete_demo_3d|verify_scene|ship|package_demo|add_sprite. ",
         "Asset roots: assets/sprites, models, ui, audio. Ship: cargo build --release; package binary + assets. ",
-        "Loop: bevy_env_check → bevy_launch_app (non-blocking, wait_secs=0) → bevy_wait_brp → query/mutate → eyesight (bevy_see_scene / bevy_capture_viewport). Port 15702. ",
-        "Agent eyesight (not an editor): bevy_see_scene, bevy_see_entity, bevy_see_region, bevy_see_motion, bevy_see_diff, bevy_see_pack — open every PNG abs_path; aesthetic claims need capture evidence. ",
-        "Plan: docs/AGENT_EYESIGHT_PLAN.md. Skill: bevy-agent-loop. ",
+        "Loop: bevy_env_check → bevy_launch_app (wait_secs=0) → bevy_wait_brp → bevy_see_scene (acuity) → mutate → re-see. Port 15702. ",
+        "Agent eyesight ~20/20 acuity (not an editor, not taste): bevy_see_scene|entity|region|motion|diff|pack. ",
+        "Open every PNG abs_path. subject_filter=gameplay_prefer; require_playing for env; projection=ortho2d|topdown3d; wait_for_subjects; save_baseline/compare_baseline; pack diagnostic|landscape|water. ",
+        "Taste/design human-owned. Plans: docs/AGENT_EYESIGHT_PLAN.md + docs/AGENT_EYESIGHT_20_20_PLAN.md. Skill: bevy-agent-loop. ",
         "Cold compile: prefer shell `cargo run --features remote,capture` then bevy_wait_brp; MCP launch is best after a warm target/. ",
         "bevy_workflow is a router (skills+steps), not an autopilot. Optional full BRP: cargo install bevy_brp_mcp --locked."
     )
@@ -409,12 +411,13 @@ pub fn workflow_plan(goal: WorkflowGoal) -> String {
             "Steps:\n",
             "  1. Confirm app features remote,capture; BRP port 15702\n",
             "  2. MCP: bevy_launch_app (wait_secs=0) if not running; cold compile prefer shell cargo run\n",
-            "  3. MCP: bevy_wait_brp → bevy_see_scene (OPEN every abs_path PNG + read packet JSON)\n",
-            "  4. Optional: bevy_see_entity / bevy_see_region (fovea) or bevy_see_motion (physics feel)\n",
-            "  5. Optional: bevy_see_pack landscape|water|entity_craft|physics_jump\n",
-            "  6. Optional: bevy_see_diff with baseline path for before/after\n",
-            "  7. Patch code or assets; re-see until glance test passes\n",
-            "  8. Aesthetic claims must cite capture paths (docs/AGENT_EYESIGHT_PLAN.md)\n",
+            "  3. MCP: bevy_wait_brp → bevy_see_scene (OPEN every abs_path; acuity packet, subject_filter)\n",
+            "  4. bevy_see_entity (true fovea world→screen) / bevy_see_region / bevy_see_motion\n",
+            "  5. bevy_see_pack landscape|water|entity_craft|physics_jump|diagnostic (multi-view)\n",
+            "  6. bevy_see_diff or see_scene compare_baseline for before/after\n",
+            "  7. require_playing / wait_for_subjects for env claims (Iron Feud: IRON_FEUD_AUTO_PLAY=1)\n",
+            "  8. Patch to human requirements; re-see — taste/design stay human-owned\n",
+            "  9. Plans: docs/AGENT_EYESIGHT_20_20_PLAN.md\n",
         )
         .to_string(),
         WorkflowGoal::Ship => concat!(
@@ -649,7 +652,7 @@ fn tool_defs() -> Value {
         },
         {
             "name": "bevy_see_scene",
-            "description": "Agent eyesight E0: full-window capture + named subjects (Name/Transform) as grok-bevy.eyesight/v1 packet. OPEN abs_path PNGs. Not an editor.",
+            "description": "Agent eyesight ~20/20 A0: full capture + filtered subjects (gameplay_prefer), optional wait_for_subjects, require_playing, baseline save/compare. OPEN abs_path. Not an editor; not taste.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -658,13 +661,23 @@ fn tool_defs() -> Value {
                     "out_dir": { "type": "string", "description": "Project root for captures/eyesight/", "default": "." },
                     "intent": { "type": "string", "default": "verify scene appearance" },
                     "style_intent": { "type": "string" },
-                    "subject_class": { "type": "string", "default": "scene" }
+                    "subject_class": { "type": "string", "default": "scene" },
+                    "subject_filter": { "type": "string", "description": "all|gameplay_prefer|names_only", "default": "gameplay_prefer" },
+                    "max_subjects": { "type": "integer", "default": 48 },
+                    "wait_for_subjects": { "type": "array", "items": { "type": "string" } },
+                    "wait_timeout_secs": { "type": "integer", "default": 15 },
+                    "require_playing": { "type": "boolean", "default": false },
+                    "projection": { "type": "string", "description": "ortho2d|topdown3d", "default": "ortho2d" },
+                    "visible_half_w": { "type": "number", "default": 640 },
+                    "visible_half_h": { "type": "number", "default": 360 },
+                    "save_baseline": { "type": "string", "description": "Copy full PNG to this path as session baseline" },
+                    "compare_baseline": { "type": "string", "description": "Diff after capture vs this baseline PNG" }
                 }
             }
         },
         {
             "name": "bevy_see_entity",
-            "description": "Agent eyesight E1 fovea: full frame + crop around screen point (default center) for a named entity. OPEN crop PNG.",
+            "description": "Agent eyesight A1 true fovea: world→screen crop for named entity (+ zoom ladder). OPEN crop PNGs.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -676,7 +689,12 @@ fn tool_defs() -> Value {
                     "screen_y": { "type": "integer" },
                     "half": { "type": "integer", "default": 96 },
                     "intent": { "type": "string", "default": "inspect entity craft" },
-                    "style_intent": { "type": "string" }
+                    "style_intent": { "type": "string" },
+                    "projection": { "type": "string", "default": "ortho2d" },
+                    "visible_half_w": { "type": "number", "default": 640 },
+                    "visible_half_h": { "type": "number", "default": 360 },
+                    "zoom_ladder": { "type": "boolean", "default": true },
+                    "diagnostic_bounds": { "type": "boolean", "default": false }
                 },
                 "required": ["name"]
             }
@@ -734,7 +752,7 @@ fn tool_defs() -> Value {
         },
         {
             "name": "bevy_see_pack",
-            "description": "Agent eyesight multi-view pack: entity_craft | landscape | water | physics_jump | lighting.",
+            "description": "Agent eyesight multi-view pack: entity_craft|landscape|water|physics_jump|lighting|diagnostic (A2/A6).",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -743,10 +761,13 @@ fn tool_defs() -> Value {
                     "out_dir": { "type": "string", "default": "." },
                     "pack": {
                         "type": "string",
-                        "description": "entity_craft | landscape | water | physics_jump | lighting"
+                        "description": "entity_craft | landscape | water | physics_jump | lighting | diagnostic"
                     },
                     "intent": { "type": "string", "default": "multi-view eyesight pack" },
-                    "style_intent": { "type": "string" }
+                    "style_intent": { "type": "string" },
+                    "projection": { "type": "string", "default": "ortho2d" },
+                    "require_playing": { "type": "boolean", "default": false },
+                    "subject_filter": { "type": "string", "default": "gameplay_prefer" }
                 },
                 "required": ["pack"]
             }
@@ -1154,6 +1175,25 @@ async fn call_tool(name: &str, args: Value, state: Arc<Mutex<ServerState>>) -> R
 }
 
 fn see_opts_from_args(args: &Value) -> SeeOptions {
+    let projection = match args
+        .get("projection")
+        .and_then(|v| v.as_str())
+        .unwrap_or("ortho2d")
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "topdown3d" | "top_down" | "3d" | "topdown" => ProjectionMode::TopDown3d,
+        _ => ProjectionMode::Ortho2d,
+    };
+    let wait_for_subjects = args
+        .get("wait_for_subjects")
+        .and_then(|v| v.as_array())
+        .map(|a| {
+            a.iter()
+                .filter_map(|x| x.as_str().map(|s| s.to_string()))
+                .collect()
+        })
+        .unwrap_or_default();
     SeeOptions {
         out_dir: PathBuf::from(
             args.get("out_dir")
@@ -1183,6 +1223,49 @@ fn see_opts_from_args(args: &Value) -> SeeOptions {
             .and_then(|v| v.as_str())
             .map(|s| s.to_string()),
         port: args.get("port").and_then(|v| v.as_u64()).map(|v| v as u16),
+        subject_filter: SubjectFilterMode::parse(
+            args.get("subject_filter")
+                .and_then(|v| v.as_str())
+                .unwrap_or("gameplay_prefer"),
+        ),
+        max_subjects: args
+            .get("max_subjects")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(DEFAULT_MAX_SUBJECTS as u64) as usize,
+        wait_for_subjects,
+        wait_timeout_secs: args
+            .get("wait_timeout_secs")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(15),
+        require_playing: args
+            .get("require_playing")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
+        projection,
+        visible_half_w: args
+            .get("visible_half_w")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(640.0),
+        visible_half_h: args
+            .get("visible_half_h")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(360.0),
+        compare_baseline: args
+            .get("compare_baseline")
+            .and_then(|v| v.as_str())
+            .map(PathBuf::from),
+        save_baseline_as: args
+            .get("save_baseline")
+            .and_then(|v| v.as_str())
+            .map(PathBuf::from),
+        zoom_ladder: args
+            .get("zoom_ladder")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true),
+        diagnostic_bounds: args
+            .get("diagnostic_bounds")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
     }
 }
 

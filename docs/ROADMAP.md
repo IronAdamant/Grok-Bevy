@@ -41,10 +41,11 @@ G6 parallel after G2
 
 Skills (HOW) → kit/templates (WHERE) → dogfood or scaffold (BUILD) → **agent eyesight** (see / judge / re-see) → package (SHIP DEMO) → later Steam checklist.
 
-MCP capture is the optic nerve; long-horizon **agent eyesight** (entity, landscape, water, physics-as-motion) is planned in [AGENT_EYESIGHT_PLAN.md](AGENT_EYESIGHT_PLAN.md) — agent senses, **not** a Bevy editor. Execute phases with `/goal` against that doc.
+MCP capture is the optic nerve; **agent eyesight** (entity, landscape, water, physics-as-motion) baseline is [AGENT_EYESIGHT_PLAN.md](AGENT_EYESIGHT_PLAN.md) (V0–V6 shipped). **Acuity 20/20** (true fovea, multi-view, clean subjects, temporal reliability) is [AGENT_EYESIGHT_20_20_PLAN.md](AGENT_EYESIGHT_20_20_PLAN.md) — still agent senses, **not** a Bevy editor; taste/design stay human-owned. Execute with `/goal` against those docs.
 
 ## Tracking
 
 Checklist: [PROGRESS.md](../PROGRESS.md) (v0.3+).  
-Eyesight phases: [AGENT_EYESIGHT_PLAN.md](AGENT_EYESIGHT_PLAN.md) (V0–V6).  
+Eyesight baseline: [AGENT_EYESIGHT_PLAN.md](AGENT_EYESIGHT_PLAN.md) (V0–V6).  
+Eyesight 20/20: [AGENT_EYESIGHT_20_20_PLAN.md](AGENT_EYESIGHT_20_20_PLAN.md) (A0–A8).  
 Session plan detail: maintained in agent sessions; this file is the **durable product roadmap**.

@@ -144,3 +144,28 @@ Execute with `/goal` against one phase at a time.
 - [x] Phase V5 complete
 - [x] Phase V6 complete
 - [x] Findings: [docs/AGENT_EYESIGHT_FINDINGS_2026-07-21.md](docs/AGENT_EYESIGHT_FINDINGS_2026-07-21.md)
+
+---
+
+## Agent eyesight 20/20 (acuity) — planned
+
+Raise perception from “can see” to observation-grade acuity. **Not** human taste/design product.
+
+Plan + phases A0–A8: [docs/AGENT_EYESIGHT_20_20_PLAN.md](docs/AGENT_EYESIGHT_20_20_PLAN.md).  
+Dogfood: Crystal Drift + Iron Feud (Playing: `IRON_FEUD_AUTO_PLAY=1`).
+
+| Phase | Name | Status |
+|-------|------|--------|
+| **A0** | State gate (Playing vs menu) | **done** |
+| **A1** | True fovea (world→screen crop) | **done** |
+| **A2** | Multi-view landscape/water/3D | **done** |
+| **A3** | Temporal acuity + stimulus | **done** |
+| **A4** | Clean subjects (filter + on-screen) | **done** |
+| **A5** | Diff memory / baselines | **done** |
+| **A6** | Diagnostic frames (optional) | **done** |
+| **A7** | README honesty + MCP user contract | **done** |
+| **A8** | Hardening multi-target / CI | **done** |
+
+- [x] Plan file landed (`docs/AGENT_EYESIGHT_20_20_PLAN.md`) + roadmap/AGENTS/README links  
+- [x] Phase A0–A8 complete (exit criteria in plan)  
+- [x] Findings: [docs/AGENT_EYESIGHT_20_20_FINDINGS_2026-07-21.md](docs/AGENT_EYESIGHT_20_20_FINDINGS_2026-07-21.md)

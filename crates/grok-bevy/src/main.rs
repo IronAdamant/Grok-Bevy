@@ -9,8 +9,8 @@ use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
 use grok_bevy_brp::{
     capture_viewport_image, see_diff, see_entity, see_motion, see_pack, see_region, see_scene,
-    BrpClient, BrpTarget, SeeOptions, DEFAULT_CROP_HALF, DEFAULT_MOTION_FRAMES,
-    DEFAULT_MOTION_INTERVAL_MS, DEFAULT_PORT,
+    BrpClient, BrpTarget, ProjectionMode, SeeOptions, SubjectFilterMode, DEFAULT_CROP_HALF,
+    DEFAULT_MOTION_FRAMES, DEFAULT_MOTION_INTERVAL_MS, DEFAULT_PORT,
 };
 use grok_bevy_env::{
     check_readiness, format_report_text, DoctorOptions, SystemCommandRunner,
@@ -92,7 +92,7 @@ enum Commands {
 
 #[derive(Subcommand, Debug)]
 enum SeeCommands {
-    /// Full-frame capture + subject list → eyesight packet JSON.
+    /// Full-frame capture + filtered subjects → eyesight packet JSON (20/20 A0).
     Scene {
         #[arg(long, default_value_t = DEFAULT_PORT)]
         port: u16,
@@ -102,8 +102,24 @@ enum SeeCommands {
         intent: String,
         #[arg(long)]
         style_intent: Option<String>,
+        #[arg(long, default_value = "gameplay_prefer")]
+        subject_filter: String,
+        #[arg(long)]
+        wait_for: Vec<String>,
+        #[arg(long, default_value_t = false)]
+        require_playing: bool,
+        #[arg(long, default_value = "ortho2d")]
+        projection: String,
+        #[arg(long, default_value_t = 640.0)]
+        visible_half_w: f64,
+        #[arg(long, default_value_t = 360.0)]
+        visible_half_h: f64,
+        #[arg(long)]
+        save_baseline: Option<PathBuf>,
+        #[arg(long)]
+        compare_baseline: Option<PathBuf>,
     },
-    /// Fovea crop around a named entity (screen coords optional, default center).
+    /// True fovea crop around a named entity (world→screen when possible).
     Entity {
         #[arg(long, default_value_t = DEFAULT_PORT)]
         port: u16,
@@ -119,6 +135,14 @@ enum SeeCommands {
         half: u32,
         #[arg(long, default_value = "inspect entity craft")]
         intent: String,
+        #[arg(long, default_value = "ortho2d")]
+        projection: String,
+        #[arg(long, default_value_t = 640.0)]
+        visible_half_w: f64,
+        #[arg(long, default_value_t = 360.0)]
+        visible_half_h: f64,
+        #[arg(long, default_value_t = false)]
+        diagnostic_bounds: bool,
     },
     /// Pixel-rect region crop.
     Region {
@@ -165,7 +189,7 @@ enum SeeCommands {
         #[arg(long, default_value = "before/after refinement")]
         intent: String,
     },
-    /// Multi-view pack: entity_craft | landscape | water | physics_jump | lighting.
+    /// Multi-view pack: entity_craft | landscape | water | physics_jump | lighting | diagnostic.
     Pack {
         #[arg(long, default_value_t = DEFAULT_PORT)]
         port: u16,
@@ -176,7 +200,18 @@ enum SeeCommands {
         intent: String,
         #[arg(long)]
         style_intent: Option<String>,
+        #[arg(long, default_value = "ortho2d")]
+        projection: String,
+        #[arg(long, default_value_t = false)]
+        require_playing: bool,
     },
+}
+
+fn parse_projection(s: &str) -> ProjectionMode {
+    match s.to_ascii_lowercase().as_str() {
+        "topdown3d" | "top_down" | "3d" | "topdown" => ProjectionMode::TopDown3d,
+        _ => ProjectionMode::Ortho2d,
+    }
 }
 
 #[derive(Subcommand, Debug)]
@@ -296,12 +331,28 @@ fn cmd_see(cmd: SeeCommands) -> Result<()> {
             out_dir,
             intent,
             style_intent,
+            subject_filter,
+            wait_for,
+            require_playing,
+            projection,
+            visible_half_w,
+            visible_half_h,
+            save_baseline,
+            compare_baseline,
         } => {
             let client = BrpClient::with_port(port);
             let opts = SeeOptions {
                 out_dir,
                 intent,
                 style_intent,
+                subject_filter: SubjectFilterMode::parse(&subject_filter),
+                wait_for_subjects: wait_for,
+                require_playing,
+                projection: parse_projection(&projection),
+                visible_half_w,
+                visible_half_h,
+                save_baseline_as: save_baseline,
+                compare_baseline,
                 ..SeeOptions::default()
             };
             let packet = see_scene(&client, &opts)?;
@@ -315,12 +366,20 @@ fn cmd_see(cmd: SeeCommands) -> Result<()> {
             screen_y,
             half,
             intent,
+            projection,
+            visible_half_w,
+            visible_half_h,
+            diagnostic_bounds,
         } => {
             let client = BrpClient::with_port(port);
             let opts = SeeOptions {
                 out_dir,
                 intent,
                 subject_class: "entity".into(),
+                projection: parse_projection(&projection),
+                visible_half_w,
+                visible_half_h,
+                diagnostic_bounds,
                 ..SeeOptions::default()
             };
             let packet = see_entity(&client, &opts, &name, screen_x, screen_y, half)?;
@@ -386,12 +445,16 @@ fn cmd_see(cmd: SeeCommands) -> Result<()> {
             pack,
             intent,
             style_intent,
+            projection,
+            require_playing,
         } => {
             let client = BrpClient::with_port(port);
             let opts = SeeOptions {
                 out_dir,
                 intent,
                 style_intent,
+                projection: parse_projection(&projection),
+                require_playing,
                 ..SeeOptions::default()
             };
             let packet = see_pack(&client, &opts, &pack)?;
