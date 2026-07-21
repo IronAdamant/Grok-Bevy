@@ -48,4 +48,5 @@ MCP capture is the optic nerve; **agent eyesight** (entity, landscape, water, ph
 Checklist: [PROGRESS.md](../PROGRESS.md) (v0.3+).  
 Eyesight baseline: [AGENT_EYESIGHT_PLAN.md](AGENT_EYESIGHT_PLAN.md) (V0–V6).  
 Eyesight 20/20: [AGENT_EYESIGHT_20_20_PLAN.md](AGENT_EYESIGHT_20_20_PLAN.md) (A0–A8).  
+Agent sight next (profiles, ranking, dogfood): [AGENT_SIGHT_NEXT_PLAN.md](AGENT_SIGHT_NEXT_PLAN.md).  
 Session plan detail: maintained in agent sessions; this file is the **durable product roadmap**.

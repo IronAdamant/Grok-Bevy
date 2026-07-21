@@ -8,9 +8,10 @@ mod scaffold;
 use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
 use grok_bevy_brp::{
-    capture_viewport_image, see_diff, see_entity, see_motion, see_pack, see_region, see_scene,
-    BrpClient, BrpTarget, ProjectionMode, SeeOptions, SubjectFilterMode, DEFAULT_CROP_HALF,
-    DEFAULT_MOTION_FRAMES, DEFAULT_MOTION_INTERVAL_MS, DEFAULT_PORT,
+    apply_game_profile, capture_viewport_image, see_diff, see_entity, see_motion, see_pack,
+    see_region, see_scene, see_verify, BrpClient, BrpTarget, ProjectionMode, SeeOptions,
+    SubjectFilterMode, DEFAULT_CROP_HALF, DEFAULT_MOTION_FRAMES, DEFAULT_MOTION_INTERVAL_MS,
+    DEFAULT_PORT,
 };
 use grok_bevy_env::{
     check_readiness, format_report_text, DoctorOptions, SystemCommandRunner,
@@ -92,7 +93,7 @@ enum Commands {
 
 #[derive(Subcommand, Debug)]
 enum SeeCommands {
-    /// Full-frame capture + filtered subjects → eyesight packet JSON (20/20 A0).
+    /// Full-frame capture + filtered subjects → eyesight packet JSON.
     Scene {
         #[arg(long, default_value_t = DEFAULT_PORT)]
         port: u16,
@@ -102,6 +103,8 @@ enum SeeCommands {
         intent: String,
         #[arg(long)]
         style_intent: Option<String>,
+        #[arg(long)]
+        profile: Option<String>,
         #[arg(long, default_value = "gameplay_prefer")]
         subject_filter: String,
         #[arg(long)]
@@ -114,6 +117,25 @@ enum SeeCommands {
         visible_half_w: f64,
         #[arg(long, default_value_t = 360.0)]
         visible_half_h: f64,
+        #[arg(long)]
+        save_baseline: Option<PathBuf>,
+        #[arg(long)]
+        compare_baseline: Option<PathBuf>,
+        #[arg(long, default_value_t = false)]
+        auto_baseline: bool,
+        #[arg(long, default_value_t = false)]
+        include_primary_fovea: bool,
+    },
+    /// Full + ranked primary fovea (+zoom) one-shot verify.
+    Verify {
+        #[arg(long, default_value_t = DEFAULT_PORT)]
+        port: u16,
+        #[arg(long, default_value = ".")]
+        out_dir: PathBuf,
+        #[arg(long, default_value = "verify scene")]
+        intent: String,
+        #[arg(long)]
+        profile: Option<String>,
         #[arg(long)]
         save_baseline: Option<PathBuf>,
         #[arg(long)]
@@ -204,6 +226,8 @@ enum SeeCommands {
         projection: String,
         #[arg(long, default_value_t = false)]
         require_playing: bool,
+        #[arg(long)]
+        profile: Option<String>,
     },
 }
 
@@ -331,6 +355,7 @@ fn cmd_see(cmd: SeeCommands) -> Result<()> {
             out_dir,
             intent,
             style_intent,
+            profile,
             subject_filter,
             wait_for,
             require_playing,
@@ -339,12 +364,15 @@ fn cmd_see(cmd: SeeCommands) -> Result<()> {
             visible_half_h,
             save_baseline,
             compare_baseline,
+            auto_baseline,
+            include_primary_fovea,
         } => {
             let client = BrpClient::with_port(port);
-            let opts = SeeOptions {
+            let mut opts = SeeOptions {
                 out_dir,
                 intent,
                 style_intent,
+                profile: profile.clone(),
                 subject_filter: SubjectFilterMode::parse(&subject_filter),
                 wait_for_subjects: wait_for,
                 require_playing,
@@ -353,9 +381,37 @@ fn cmd_see(cmd: SeeCommands) -> Result<()> {
                 visible_half_h,
                 save_baseline_as: save_baseline,
                 compare_baseline,
+                auto_baseline,
+                include_primary_fovea,
                 ..SeeOptions::default()
             };
+            if let Some(ref p) = profile {
+                apply_game_profile(&mut opts, p);
+            }
             let packet = see_scene(&client, &opts)?;
+            println!("{}", packet.to_pretty_json()?);
+        }
+        SeeCommands::Verify {
+            port,
+            out_dir,
+            intent,
+            profile,
+            save_baseline,
+            compare_baseline,
+        } => {
+            let client = BrpClient::with_port(port);
+            let mut opts = SeeOptions {
+                out_dir,
+                intent,
+                profile: profile.clone(),
+                save_baseline_as: save_baseline,
+                compare_baseline,
+                ..SeeOptions::default()
+            };
+            if let Some(ref p) = profile {
+                apply_game_profile(&mut opts, p);
+            }
+            let packet = see_verify(&client, &opts)?;
             println!("{}", packet.to_pretty_json()?);
         }
         SeeCommands::Entity {
@@ -447,16 +503,21 @@ fn cmd_see(cmd: SeeCommands) -> Result<()> {
             style_intent,
             projection,
             require_playing,
+            profile,
         } => {
             let client = BrpClient::with_port(port);
-            let opts = SeeOptions {
+            let mut opts = SeeOptions {
                 out_dir,
                 intent,
                 style_intent,
                 projection: parse_projection(&projection),
                 require_playing,
+                profile: profile.clone(),
                 ..SeeOptions::default()
             };
+            if let Some(ref p) = profile {
+                apply_game_profile(&mut opts, p);
+            }
             let packet = see_pack(&client, &opts, &pack)?;
             println!("{}", packet.to_pretty_json()?);
         }

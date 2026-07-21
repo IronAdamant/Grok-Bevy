@@ -7,10 +7,10 @@
 
 use anyhow::{anyhow, Context, Result};
 use grok_bevy_brp::{
-    capture_viewport_image, packet_to_mcp_content, see_diff, see_entity, see_motion, see_pack,
-    see_region, see_scene, BrpClient, BrpTarget, CapturedImage, ProjectionMode, SeeOptions,
-    SubjectFilterMode, TargetRegistry, DEFAULT_CROP_HALF, DEFAULT_MAX_SUBJECTS,
-    DEFAULT_MOTION_FRAMES, DEFAULT_MOTION_INTERVAL_MS, DEFAULT_PORT,
+    apply_game_profile, capture_viewport_image, packet_to_mcp_content, see_diff, see_entity,
+    see_motion, see_pack, see_region, see_scene, see_verify, BrpClient, BrpTarget, CapturedImage,
+    ProjectionMode, SeeOptions, SubjectFilterMode, TargetRegistry, DEFAULT_CROP_HALF,
+    DEFAULT_MAX_SUBJECTS, DEFAULT_MOTION_FRAMES, DEFAULT_MOTION_INTERVAL_MS, DEFAULT_PORT,
 };
 use grok_bevy_env::{check_readiness, DoctorOptions, SystemCommandRunner};
 use serde_json::{json, Value};
@@ -148,9 +148,10 @@ pub fn mcp_instructions() -> String {
         "bevy_workflow goals: new_2d|new_3d|complete_demo_2d|complete_demo_3d|verify_scene|ship|package_demo|add_sprite. ",
         "Asset roots: assets/sprites, models, ui, audio. Ship: cargo build --release; package binary + assets. ",
         "Loop: bevy_env_check → bevy_launch_app (wait_secs=0) → bevy_wait_brp → bevy_see_scene (acuity) → mutate → re-see. Port 15702. ",
-        "Agent eyesight ~20/20 acuity (not an editor, not taste): bevy_see_scene|entity|region|motion|diff|pack. ",
-        "Open every PNG abs_path. subject_filter=gameplay_prefer; require_playing for env; projection=ortho2d|topdown3d; wait_for_subjects; save_baseline/compare_baseline; pack diagnostic|landscape|water. ",
-        "Taste/design human-owned. Plans: docs/AGENT_EYESIGHT_PLAN.md + docs/AGENT_EYESIGHT_20_20_PLAN.md. Skill: bevy-agent-loop. ",
+        "Agent sight (not editor, not taste): bevy_see_scene|verify|entity|region|motion|diff|pack. ",
+        "Profiles: crystal-drift | iron-feud (sets projection, wait_for, require_playing). primary_subject ranked (Player/WaterBody over Crystal/OreCrystal). ",
+        "Open every PNG abs_path. bevy_see_verify = full+fovea. Iron Feud: IRON_FEUD_AUTO_PLAY=1. No livestream. ",
+        "Taste/design human-owned. Plan: docs/AGENT_SIGHT_NEXT_PLAN.md. Skill: bevy-agent-loop. ",
         "Cold compile: prefer shell `cargo run --features remote,capture` then bevy_wait_brp; MCP launch is best after a warm target/. ",
         "bevy_workflow is a router (skills+steps), not an autopilot. Optional full BRP: cargo install bevy_brp_mcp --locked."
     )
@@ -411,13 +412,13 @@ pub fn workflow_plan(goal: WorkflowGoal) -> String {
             "Steps:\n",
             "  1. Confirm app features remote,capture; BRP port 15702\n",
             "  2. MCP: bevy_launch_app (wait_secs=0) if not running; cold compile prefer shell cargo run\n",
-            "  3. MCP: bevy_wait_brp → bevy_see_scene (OPEN every abs_path; acuity packet, subject_filter)\n",
-            "  4. bevy_see_entity (true fovea world→screen) / bevy_see_region / bevy_see_motion\n",
-            "  5. bevy_see_pack landscape|water|entity_craft|physics_jump|diagnostic (multi-view)\n",
-            "  6. bevy_see_diff or see_scene compare_baseline for before/after\n",
-            "  7. require_playing / wait_for_subjects for env claims (Iron Feud: IRON_FEUD_AUTO_PLAY=1)\n",
-            "  8. Patch to human requirements; re-see — taste/design stay human-owned\n",
-            "  9. Plans: docs/AGENT_EYESIGHT_20_20_PLAN.md\n",
+            "  3. MCP: bevy_wait_brp → bevy_see_verify profile=crystal-drift|iron-feud (OPEN abs_paths)\n",
+            "  4. Or bevy_see_scene + bevy_see_entity; primary_subject is ranked\n",
+            "  5. bevy_see_pack landscape|water|diagnostic; views_similar if alt≈game\n",
+            "  6. compare_baseline / save_baseline after visual changes\n",
+            "  7. Iron Feud: IRON_FEUD_AUTO_PLAY=1 + profile iron-feud (require_playing)\n",
+            "  8. Patch to human requirements; re-see — taste human-owned; no livestream\n",
+            "  9. Plan: docs/AGENT_SIGHT_NEXT_PLAN.md\n",
         )
         .to_string(),
         WorkflowGoal::Ship => concat!(
@@ -652,26 +653,45 @@ fn tool_defs() -> Value {
         },
         {
             "name": "bevy_see_scene",
-            "description": "Agent eyesight ~20/20 A0: full capture + filtered subjects (gameplay_prefer), optional wait_for_subjects, require_playing, baseline save/compare. OPEN abs_path. Not an editor; not taste.",
+            "description": "Agent sight: full capture + ranked primary + collapsed subjects. profile=crystal-drift|iron-feud. OPEN abs_path. Not editor/taste.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "port": { "type": "integer", "default": 15702 },
                     "target": { "type": "string" },
-                    "out_dir": { "type": "string", "description": "Project root for captures/eyesight/", "default": "." },
+                    "out_dir": { "type": "string", "default": "." },
                     "intent": { "type": "string", "default": "verify scene appearance" },
                     "style_intent": { "type": "string" },
                     "subject_class": { "type": "string", "default": "scene" },
-                    "subject_filter": { "type": "string", "description": "all|gameplay_prefer|names_only", "default": "gameplay_prefer" },
-                    "max_subjects": { "type": "integer", "default": 48 },
+                    "profile": { "type": "string", "description": "crystal-drift|iron-feud|default" },
+                    "subject_filter": { "type": "string", "default": "gameplay_prefer" },
+                    "max_subjects": { "type": "integer", "default": 24 },
                     "wait_for_subjects": { "type": "array", "items": { "type": "string" } },
                     "wait_timeout_secs": { "type": "integer", "default": 15 },
                     "require_playing": { "type": "boolean", "default": false },
-                    "projection": { "type": "string", "description": "ortho2d|topdown3d", "default": "ortho2d" },
+                    "projection": { "type": "string", "default": "ortho2d" },
                     "visible_half_w": { "type": "number", "default": 640 },
                     "visible_half_h": { "type": "number", "default": 360 },
-                    "save_baseline": { "type": "string", "description": "Copy full PNG to this path as session baseline" },
-                    "compare_baseline": { "type": "string", "description": "Diff after capture vs this baseline PNG" }
+                    "save_baseline": { "type": "string" },
+                    "compare_baseline": { "type": "string" },
+                    "auto_baseline": { "type": "boolean", "default": false },
+                    "include_primary_fovea": { "type": "boolean", "default": false }
+                }
+            }
+        },
+        {
+            "name": "bevy_see_verify",
+            "description": "One-shot agent verify: full scene + ranked primary fovea (+zoom). Prefer profile=crystal-drift|iron-feud. OPEN all abs_paths.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "port": { "type": "integer", "default": 15702 },
+                    "target": { "type": "string" },
+                    "out_dir": { "type": "string", "default": "." },
+                    "intent": { "type": "string", "default": "verify scene" },
+                    "profile": { "type": "string" },
+                    "save_baseline": { "type": "string" },
+                    "compare_baseline": { "type": "string" }
                 }
             }
         },
@@ -1087,6 +1107,12 @@ async fn call_tool(name: &str, args: Value, state: Arc<Mutex<ServerState>>) -> R
             let packet = tokio::task::spawn_blocking(move || see_scene(&client, &opts)).await??;
             packet_to_mcp_content(&packet)
         }
+        "bevy_see_verify" => {
+            let client = client_from_args(&args, &state).await?;
+            let opts = see_opts_from_args(&args);
+            let packet = tokio::task::spawn_blocking(move || see_verify(&client, &opts)).await??;
+            packet_to_mcp_content(&packet)
+        }
         "bevy_see_entity" => {
             let client = client_from_args(&args, &state).await?;
             let opts = see_opts_from_args(&args);
@@ -1126,7 +1152,13 @@ async fn call_tool(name: &str, args: Value, state: Arc<Mutex<ServerState>>) -> R
         }
         "bevy_see_motion" => {
             let client = client_from_args(&args, &state).await?;
-            let opts = see_opts_from_args(&args);
+            let mut opts = see_opts_from_args(&args);
+            if let Some(e) = args.get("mutate_entity").and_then(|v| v.as_u64()) {
+                opts.motion_mutate_entity = Some(e);
+            }
+            if let Some(tr) = args.get("mutate_translation").cloned() {
+                opts.motion_mutate_translation = Some(tr);
+            }
             let frames = args
                 .get("frames")
                 .and_then(|v| v.as_u64())
@@ -1175,6 +1207,10 @@ async fn call_tool(name: &str, args: Value, state: Arc<Mutex<ServerState>>) -> R
 }
 
 fn see_opts_from_args(args: &Value) -> SeeOptions {
+    let profile = args
+        .get("profile")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
     let projection = match args
         .get("projection")
         .and_then(|v| v.as_str())
@@ -1194,7 +1230,7 @@ fn see_opts_from_args(args: &Value) -> SeeOptions {
                 .collect()
         })
         .unwrap_or_default();
-    SeeOptions {
+    let mut opts = SeeOptions {
         out_dir: PathBuf::from(
             args.get("out_dir")
                 .and_then(|v| v.as_str())
@@ -1266,7 +1302,29 @@ fn see_opts_from_args(args: &Value) -> SeeOptions {
             .get("diagnostic_bounds")
             .and_then(|v| v.as_bool())
             .unwrap_or(false),
+        profile: profile.clone(),
+        include_primary_fovea: args
+            .get("include_primary_fovea")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
+        motion_mutate_entity: args.get("mutate_entity").and_then(|v| v.as_u64()),
+        motion_mutate_translation: args.get("mutate_translation").cloned(),
+        auto_baseline: args
+            .get("auto_baseline")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
+    };
+    if let Some(ref p) = profile {
+        apply_game_profile(&mut opts, p);
+        // Explicit projection override after profile if user passed projection key
+        if args.get("projection").and_then(|v| v.as_str()).is_some() {
+            opts.projection = projection;
+        }
+        if args.get("require_playing").and_then(|v| v.as_bool()).is_some() {
+            opts.require_playing = args["require_playing"].as_bool().unwrap_or(opts.require_playing);
+        }
     }
+    opts
 }
 
 async fn client_from_args(args: &Value, state: &Arc<Mutex<ServerState>>) -> Result<BrpClient> {
@@ -1414,6 +1472,7 @@ mod tests {
         assert!(names.contains(&"bevy_launch_app"));
         for see in [
             "bevy_see_scene",
+            "bevy_see_verify",
             "bevy_see_entity",
             "bevy_see_region",
             "bevy_see_motion",
@@ -1425,10 +1484,22 @@ mod tests {
     }
 
     #[test]
+    fn instructions_mention_profiles() {
+        let s = mcp_instructions();
+        assert!(s.contains("crystal-drift") || s.contains("profile"));
+        assert!(s.contains("iron-feud") || s.contains("IRON_FEUD"));
+    }
+
+    #[test]
     fn instructions_mention_eyesight() {
         let s = mcp_instructions();
-        assert!(s.contains("bevy_see_scene") || s.contains("eyesight"));
-        assert!(s.contains("AGENT_EYESIGHT") || s.contains("open every PNG"));
+        assert!(s.contains("bevy_see_scene") || s.contains("bevy_see_verify") || s.contains("sight"));
+        assert!(
+            s.contains("AGENT_SIGHT")
+                || s.contains("AGENT_EYESIGHT")
+                || s.contains("abs_path")
+                || s.contains("profile")
+        );
     }
 
     #[test]

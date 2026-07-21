@@ -23,8 +23,38 @@ pub const DEFAULT_MOTION_INTERVAL_MS: u64 = 70;
 /// Default fovea half-size in pixels when cropping around a point.
 pub const DEFAULT_CROP_HALF: u32 = 96;
 
-/// Default max subjects in filtered packets (A4).
-pub const DEFAULT_MAX_SUBJECTS: usize = 48;
+/// Default max subjects in filtered packets (S0: 24 for agent attention).
+pub const DEFAULT_MAX_SUBJECTS: usize = 24;
+
+/// Exact Names preferred as primary (S0.1 tier 1).
+pub const PRIMARY_EXACT: &[&str] = &[
+    "Player",
+    "MainCamera",
+    "StrategyCamera",
+    "WaterBody",
+    "Ground",
+    "DerelictStation",
+];
+
+/// Name prefixes preferred after exact match (S0.1 tier 2).
+pub const PRIMARY_PREFIXES: &[&str] = &[
+    "Nebula",
+    "RockOutcrop",
+    "TreeScrub",
+    "CliffRidge",
+    "FieldScrap",
+    "Asteroid",
+    "Shield",
+    "Fuel",
+    "Beacon",
+    "Rescue",
+    "Relay",
+    "Supply",
+    "Debris",
+    "IceField",
+    "AshPlateau",
+    "RidgeOutcrop",
+];
 
 /// Acuity milestone label for 20/20-candidate packets.
 pub const ACUITY_LABEL: &str = "20/20-candidate";
@@ -54,6 +84,20 @@ pub const GAMEPLAY_NAME_HINTS: &[&str] = &[
     "Light",
     "Hud",
     "HUD",
+    // S0/S1/S2 dogfood Names — must score >0 to survive gameplay_prefer filter
+    "Beacon",
+    "Buoy",
+    "Rescue",
+    "Pod",
+    "Debris",
+    "Relay",
+    "Tower",
+    "Supply",
+    "Crate",
+    "Ash",
+    "Plateau",
+    "Ridge",
+    "Ice",
 ];
 
 /// Role of a capture within an eyesight packet.
@@ -132,7 +176,7 @@ impl CaptureEntry {
 }
 
 /// Named subject grounding pixels to ECS.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct EyesightSubject {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -147,6 +191,9 @@ pub struct EyesightSubject {
     pub screen_xy: Option<[u32; 2]>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub screen_aabb: Option<[u32; 4]>,
+    /// How many entities shared this Name before collapse (S0.2).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub duplicate_count: Option<u32>,
 }
 
 /// Subject list filter mode (A4).
@@ -631,9 +678,168 @@ pub fn subjects_from_query(query: &Value) -> Vec<EyesightSubject> {
             on_screen: None,
             screen_xy: None,
             screen_aabb: None,
+            duplicate_count: None,
         });
     }
     out
+}
+
+/// Rank best primary subject Name for fovea (S0.1). Never prefers Star/OreCrystal/Menu when better exist.
+pub fn rank_primary_subject(subjects: &[EyesightSubject]) -> Option<String> {
+    if subjects.is_empty() {
+        return None;
+    }
+    // Tier 1: exact
+    for exact in PRIMARY_EXACT {
+        if subjects.iter().any(|s| s.name == *exact) {
+            return Some((*exact).to_string());
+        }
+    }
+    // Tier 2: prefix
+    for pref in PRIMARY_PREFIXES {
+        if let Some(s) = subjects.iter().find(|s| s.name.starts_with(pref) || s.name.contains(pref))
+        {
+            return Some(s.name.clone());
+        }
+    }
+    // Tier 3: best gameplay score, excluding noise
+    let mut best: Option<(&str, i32)> = None;
+    for s in subjects {
+        if is_noise_name(&s.name) {
+            continue;
+        }
+        let sc = gameplay_subject_score(&s.name);
+        if sc <= 0 {
+            continue;
+        }
+        match best {
+            None => best = Some((s.name.as_str(), sc)),
+            Some((_, b)) if sc > b => best = Some((s.name.as_str(), sc)),
+            _ => {}
+        }
+    }
+    if let Some((n, _)) = best {
+        return Some(n.to_string());
+    }
+    // Last resort: first non-noise
+    subjects
+        .iter()
+        .find(|s| !is_noise_name(&s.name))
+        .map(|s| s.name.clone())
+        .or_else(|| subjects.first().map(|s| s.name.clone()))
+}
+
+fn is_noise_name(name: &str) -> bool {
+    name.starts_with("Star")
+        || name.contains("Particle")
+        || name.starts_with("OreCrystal")
+        || name.contains("Menu")
+        || name == "unnamed"
+}
+
+/// Collapse identical Names; keep first entity, set `duplicate_count` (S0.2).
+pub fn collapse_duplicate_names(subjects: Vec<EyesightSubject>) -> Vec<EyesightSubject> {
+    let mut order: Vec<String> = Vec::new();
+    let mut map: std::collections::HashMap<String, EyesightSubject> =
+        std::collections::HashMap::new();
+    for s in subjects {
+        let key = s.name.clone();
+        if let Some(existing) = map.get_mut(&key) {
+            let prev = existing.duplicate_count.unwrap_or(1);
+            existing.duplicate_count = Some(prev + 1);
+        } else {
+            order.push(key.clone());
+            let mut s = s;
+            s.duplicate_count = Some(1);
+            map.insert(key, s);
+        }
+    }
+    order
+        .into_iter()
+        .filter_map(|k| map.remove(&k))
+        .map(|mut s| {
+            if s.duplicate_count == Some(1) {
+                s.duplicate_count = None;
+            }
+            s
+        })
+        .collect()
+}
+
+/// Apply named game profile defaults into SeeOptions (S0.3). Explicit non-empty waits already set are kept if non-empty.
+pub fn apply_game_profile(opts: &mut SeeOptions, profile: &str) {
+    match profile.to_ascii_lowercase().as_str() {
+        "crystal-drift" | "crystal_drift" | "cd" => {
+            opts.projection = ProjectionMode::Ortho2d;
+            opts.visible_half_w = 640.0;
+            opts.visible_half_h = 360.0;
+            opts.require_playing = false;
+            if opts.wait_for_subjects.is_empty() {
+                opts.wait_for_subjects = vec!["Player".into()];
+            }
+            opts.subject_class = if opts.subject_class == "scene" {
+                "scene".into()
+            } else {
+                opts.subject_class.clone()
+            };
+        }
+        "iron-feud" | "iron_feud" | "if" => {
+            opts.projection = ProjectionMode::TopDown3d;
+            opts.visible_half_w = 20.0;
+            opts.visible_half_h = 20.0;
+            opts.require_playing = true;
+            if opts.wait_for_subjects.is_empty() {
+                opts.wait_for_subjects = vec![
+                    "StrategyCamera".into(),
+                    "WaterBody".into(),
+                    "Ground".into(),
+                ];
+            }
+        }
+        _ => {
+            // default: leave as-is for projection/wait unless empty defaults
+            if opts.visible_half_w <= 0.0 {
+                opts.visible_half_w = 640.0;
+            }
+            if opts.visible_half_h <= 0.0 {
+                opts.visible_half_h = 360.0;
+            }
+        }
+    }
+}
+
+/// Diagnostic / env allowlist when no ranked Player (S0.8).
+pub fn diagnostic_primary_name(subjects: &[EyesightSubject]) -> String {
+    if let Some(r) = rank_primary_subject(subjects) {
+        return r;
+    }
+    for n in [
+        "WaterBody",
+        "FieldScrap_A",
+        "Ground",
+        "DerelictStation",
+        "Player",
+        "BeaconBuoy",
+        "RelayTower",
+    ] {
+        if subjects.iter().any(|s| s.name == n || s.name.contains(n)) {
+            return n.to_string();
+        }
+    }
+    subjects
+        .first()
+        .map(|s| s.name.clone())
+        .unwrap_or_else(|| "Player".into())
+}
+
+/// File hash for multi-view comparison (S0.7).
+pub fn file_content_hash(path: &Path) -> Result<u64> {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    let bytes = fs::read(path)?;
+    let mut h = DefaultHasher::new();
+    bytes.hash(&mut h);
+    Ok(h.finish())
 }
 
 /// Score for gameplay preference sort (higher first).
@@ -976,6 +1182,16 @@ pub struct SeeOptions {
     pub zoom_ladder: bool,
     /// A6: draw bounds on diagnostic capture.
     pub diagnostic_bounds: bool,
+    /// Game profile name applied (crystal-drift | iron-feud | default).
+    pub profile: Option<String>,
+    /// When true, see_scene also attaches primary fovea (+ zoom).
+    pub include_primary_fovea: bool,
+    /// Motion: optional entity id to mutate before strip.
+    pub motion_mutate_entity: Option<u64>,
+    /// Motion: translation value JSON object {x,y,z}.
+    pub motion_mutate_translation: Option<Value>,
+    /// If save_baseline requested with no path, use default eyesight baseline path.
+    pub auto_baseline: bool,
 }
 
 impl Default for SeeOptions {
@@ -1000,6 +1216,11 @@ impl Default for SeeOptions {
             save_baseline_as: None,
             zoom_ladder: true,
             diagnostic_bounds: false,
+            profile: None,
+            include_primary_fovea: false,
+            motion_mutate_entity: None,
+            motion_mutate_translation: None,
+            auto_baseline: false,
         }
     }
 }
@@ -1025,13 +1246,18 @@ fn apply_subject_pipeline(
         .app_state
         .clone()
         .or_else(|| infer_app_state_from_subjects(&raw));
+    let collapsed = collapse_duplicate_names(raw);
     let (filtered, truncated) =
-        filter_subjects(raw, opts.subject_filter, opts.max_subjects);
+        filter_subjects(collapsed, opts.subject_filter, opts.max_subjects);
     (filtered, truncated, inferred)
 }
 
-/// E0: full-frame capture + filtered subjects → packet (A0/A4/A5).
+/// E0: full-frame capture + filtered subjects → packet (A0/A4/A5 + S0 ranking).
 pub fn see_scene(client: &BrpClient, opts: &SeeOptions) -> Result<EyesightPacket> {
+    let mut opts = opts.clone();
+    if let Some(ref p) = opts.profile.clone() {
+        apply_game_profile(&mut opts, p);
+    }
     if !opts.wait_for_subjects.is_empty() {
         wait_for_subject_names(
             client,
@@ -1043,7 +1269,7 @@ pub fn see_scene(client: &BrpClient, opts: &SeeOptions) -> Result<EyesightPacket
     let full_path = eyesight_path(&opts.out_dir, "scene_full.png");
     let img = capture_viewport_image(client, &full_path)?;
     let entry = CaptureEntry::from_path(CaptureRole::Full, &img.path)?
-        .with_note("A0 full frame");
+        .with_note("S0 full frame");
 
     let (w, h) = (
         entry.width.unwrap_or(1280),
@@ -1056,6 +1282,7 @@ pub fn see_scene(client: &BrpClient, opts: &SeeOptions) -> Result<EyesightPacket
     packet.port = Some(client.target.port);
     packet.subject_filter = Some(format!("{:?}", opts.subject_filter).to_ascii_lowercase());
     packet.captures.push(entry);
+    packet.views = Some(vec!["full".into()]);
 
     let raw = query_all_subjects(client);
     if opts.require_playing && subjects_look_menu_only(&raw) {
@@ -1064,13 +1291,11 @@ pub fn see_scene(client: &BrpClient, opts: &SeeOptions) -> Result<EyesightPacket
              Set IRON_FEUD_AUTO_PLAY=1 or press Enter before claiming environment sight."
         ));
     }
-    let (filtered, truncated, inferred) = apply_subject_pipeline(raw, opts, w, h);
+    let (filtered, truncated, inferred) = apply_subject_pipeline(raw, &opts, w, h);
     packet.subjects = filtered;
     packet.subjects_truncated = if truncated { Some(true) } else { None };
     packet.app_state = inferred;
-    if let Some(p) = packet.subjects.first() {
-        packet.primary_subject = Some(p.name.clone());
-    }
+    packet.primary_subject = rank_primary_subject(&packet.subjects);
     if subjects_look_menu_only(&packet.subjects) {
         packet.push_warning(
             "subjects look menu-only — env claims invalid; wait for Playing / AUTO_PLAY",
@@ -1087,27 +1312,84 @@ pub fn see_scene(client: &BrpClient, opts: &SeeOptions) -> Result<EyesightPacket
         );
     }
 
-    if let Some(ref base) = opts.save_baseline_as {
+    let baseline_path = opts.save_baseline_as.clone().or_else(|| {
+        if opts.auto_baseline {
+            Some(eyesight_path(&opts.out_dir, "baseline_scene.png"))
+        } else {
+            None
+        }
+    });
+    if let Some(ref base) = baseline_path {
         if let Some(parent) = base.parent() {
             fs::create_dir_all(parent)?;
         }
         fs::copy(&img.path, base)?;
         packet.baseline_path = Some(abs_path_string(base));
     }
+    let compare = opts.compare_baseline.clone().or_else(|| {
+        let def = eyesight_path(&opts.out_dir, "baseline_scene.png");
+        if opts.compare_baseline.is_none() && def.is_file() && opts.auto_baseline {
+            Some(def)
+        } else {
+            None
+        }
+    });
+    // Explicit compare_baseline only (not auto re-diff every time)
     if let Some(ref base) = opts.compare_baseline {
         let diff_path = eyesight_path(&opts.out_dir, "scene_vs_baseline_diff.png");
         if let Ok((p, score)) = write_diff_png(base, &img.path, &diff_path) {
             packet.captures.push(
                 CaptureEntry::from_path(CaptureRole::Diff, &p)?
-                    .with_note(format!("A5 vs baseline mean={score:.4}")),
+                    .with_note(format!("S0 vs baseline mean={score:.4}")),
             );
             packet.baseline_path = Some(abs_path_string(base));
+        }
+    }
+    let _ = compare;
+
+    // Optional primary fovea attach
+    if opts.include_primary_fovea {
+        if let Some(ref primary) = packet.primary_subject.clone() {
+            if let Ok(ent) = see_entity(client, &opts, primary, None, None, DEFAULT_CROP_HALF) {
+                for c in ent.captures {
+                    if c.role == "crop" {
+                        let c = c;
+                        if c.note.as_ref().map(|n| n.contains("zoom")).unwrap_or(false) {
+                            if let Some(v) = packet.views.as_mut() {
+                                if !v.iter().any(|x| x == "fovea_zoom") {
+                                    v.push("fovea_zoom".into());
+                                }
+                            }
+                        } else if let Some(v) = packet.views.as_mut() {
+                            if !v.iter().any(|x| x == "fovea") {
+                                v.push("fovea".into());
+                            }
+                        }
+                        packet.captures.push(c);
+                    }
+                }
+            }
         }
     }
 
     let json_path = eyesight_path(&opts.out_dir, "scene_packet.json");
     packet.write_json(json_path)?;
     packet.validate()?;
+    Ok(packet)
+}
+
+/// S0.4 one-shot verify: scene + primary fovea (+ zoom).
+pub fn see_verify(client: &BrpClient, opts: &SeeOptions) -> Result<EyesightPacket> {
+    let mut opts = opts.clone();
+    if let Some(ref p) = opts.profile.clone() {
+        apply_game_profile(&mut opts, p);
+    }
+    opts.include_primary_fovea = true;
+    opts.zoom_ladder = true;
+    let mut packet = see_scene(client, &opts)?;
+    packet.intent = format!("verify: {}", opts.intent);
+    let json_path = eyesight_path(&opts.out_dir, "verify_packet.json");
+    packet.write_json(json_path)?;
     Ok(packet)
 }
 
@@ -1230,6 +1512,7 @@ pub fn see_entity(
                 half.saturating_mul(2),
                 half.saturating_mul(2),
             ]),
+            duplicate_count: None,
         });
     } else {
         packet.subjects = matched;
@@ -1279,6 +1562,7 @@ pub fn see_region(
         on_screen: Some(true),
         screen_xy: Some([x + w / 2, y + h / 2]),
         screen_aabb: Some([x, y, w, h]),
+    duplicate_count: None,
     });
 
     let json_path = eyesight_path(
@@ -1312,12 +1596,27 @@ pub fn see_motion(
     packet.port = Some(client.target.port);
     packet.app_state = opts.app_state.clone();
 
+    let mut opts = opts.clone();
+    if let Some(ref p) = opts.profile.clone() {
+        apply_game_profile(&mut opts, p);
+    }
+
     if let Some(ref k) = keys {
         let params = json!({ "keys": k, "duration": 0.05 });
         let _ = client.call("brp_extras/send_keys", Some(params));
         packet.stimulus = StimulusInfo {
             kind: "keys".into(),
             detail: Some(json!({ "keys": k })),
+        };
+    } else if let (Some(ent), Some(ref tr)) =
+        (opts.motion_mutate_entity, opts.motion_mutate_translation.clone())
+    {
+        let component = "bevy_transform::components::transform::Transform";
+        let _ = client.mutate_components(ent, component, "translation", tr.clone());
+        thread::sleep(Duration::from_millis(50));
+        packet.stimulus = StimulusInfo {
+            kind: "mutate".into(),
+            detail: Some(json!({ "entity": ent, "translation": tr })),
         };
     } else {
         packet.stimulus = StimulusInfo {
@@ -1375,7 +1674,7 @@ pub fn see_motion(
     }
 
     let (filtered, _, inferred) =
-        apply_subject_pipeline(query_all_subjects(client), opts, 1280, 720);
+        apply_subject_pipeline(query_all_subjects(client), &opts, 1280, 720);
     packet.subjects = filtered;
     if packet.app_state.is_none() {
         packet.app_state = inferred;
@@ -1493,6 +1792,10 @@ pub fn see_pack(
             }
         }
         "landscape" | "water" => {
+            let mut opts = opts.clone();
+            if let Some(ref p) = opts.profile.clone() {
+                apply_game_profile(&mut opts, p);
+            }
             // View 1: game camera
             let game_name = if pack == "water" {
                 "pack_water_view_game.png"
@@ -1522,21 +1825,21 @@ pub fn see_pack(
                     .with_note(format!("{pack} crop from game view")),
             );
 
-            // View 2: camera nudge for multi-view (A2)
             let subjects = query_all_subjects(client);
+            let game_hash = file_content_hash(&img.path).ok();
             if let Some(cam_s) = subjects.iter().find(|s| {
-                s.name == "StrategyCamera" || s.name == "MainCamera" || (s.name.contains("Camera") && !s.name.contains("Menu"))
+                s.name == "StrategyCamera"
+                    || s.name == "MainCamera"
+                    || (s.name.contains("Camera") && !s.name.contains("Menu"))
             }) {
                 if let (Some(entity), Some(t)) = (cam_s.entity, cam_s.translation) {
                     let component = "bevy_transform::components::transform::Transform";
                     let restore = json!({ "x": t[0], "y": t[1], "z": t[2] });
-                    // Top / elevated or pan
                     let nudged = if matches!(opts.projection, ProjectionMode::TopDown3d)
                         || cam_s.name.contains("Strategy")
                     {
                         json!({ "x": t[0], "y": (t[1] + 18.0).max(20.0), "z": t[2] })
                     } else {
-                        // 2D: pan camera
                         json!({ "x": t[0] + 180.0, "y": t[1] + 80.0, "z": t[2] })
                     };
                     let role = if matches!(opts.projection, ProjectionMode::TopDown3d)
@@ -1549,7 +1852,7 @@ pub fn see_pack(
                     let fname = format!("pack_{}_view_alt.png", pack);
                     if let Ok(entry) = capture_with_camera_nudge(
                         client,
-                        opts,
+                        &opts,
                         role,
                         &fname,
                         &format!("{pack} view=alt (camera nudge)"),
@@ -1558,12 +1861,18 @@ pub fn see_pack(
                         nudged,
                         restore,
                     ) {
+                        if let (Some(gh), Ok(ah)) = (game_hash, file_content_hash(Path::new(&entry.abs_path))) {
+                            if gh == ah {
+                                packet.push_warning(
+                                    "views_similar: alt view hash matches game — do not claim multi-angle insight",
+                                );
+                            }
+                        }
                         packet.captures.push(entry);
                         views.push("alt".into());
                     }
                 }
             } else {
-                // Fallback second crop (different region) so ≥2 visual artifacts
                 let alt_path = eyesight_path(&opts.out_dir, &format!("pack_{}_view_alt_crop.png", pack));
                 crop_png_file(&img.path, &alt_path, 0, h / 2, w, h / 2)?;
                 packet.captures.push(
@@ -1573,9 +1882,10 @@ pub fn see_pack(
                 views.push("alt_crop".into());
             }
 
-            let (filtered, _, inferred) = apply_subject_pipeline(subjects, opts, w, h);
+            let (filtered, _, inferred) = apply_subject_pipeline(subjects, &opts, w, h);
             packet.subjects = filtered;
             packet.app_state = inferred;
+            packet.primary_subject = rank_primary_subject(&packet.subjects);
         }
         "physics_jump" | "physics" => {
             let mut motion_opts = opts.clone();
@@ -1600,20 +1910,26 @@ pub fn see_pack(
             views.push("lit".into());
         }
         "diagnostic" => {
-            // A6: beauty full + diagnostic bounds on center/fovea
             let mut o = opts.clone();
+            if let Some(ref p) = o.profile.clone() {
+                apply_game_profile(&mut o, p);
+            }
             o.diagnostic_bounds = true;
             let full_path = eyesight_path(&opts.out_dir, "pack_diagnostic_full.png");
             let img = capture_viewport_image(client, &full_path)?;
             packet.captures.push(
                 CaptureEntry::from_path(CaptureRole::Full, &img.path)?
-                    .with_note("A6 diagnostic full (beauty still)"),
+                    .with_note("S0 diagnostic full (beauty still)"),
             );
-            let name = o
-                .wait_for_subjects
-                .first()
-                .cloned()
-                .unwrap_or_else(|| "Player".into());
+            let raw = query_all_subjects(client);
+            let (filtered, _, _) = apply_subject_pipeline(
+                raw,
+                &o,
+                packet.captures[0].width.unwrap_or(1280),
+                packet.captures[0].height.unwrap_or(720),
+            );
+            let name = diagnostic_primary_name(&filtered);
+            packet.primary_subject = Some(name.clone());
             if let Ok(ent) = see_entity(client, &o, &name, None, None, 120) {
                 packet.captures.extend(ent.captures.into_iter().filter(|c| {
                     c.note
@@ -1622,9 +1938,11 @@ pub fn see_pack(
                         .unwrap_or(false)
                 }));
                 packet.subjects = ent.subjects;
+            } else {
+                packet.subjects = filtered;
             }
             packet.push_warning(
-                "diagnostic pack: bounds overlay on crops; unlit materials require game flag",
+                "diagnostic pack: bounds overlay on crops; primary from ranker/allowlist (not Player-only)",
             );
             views.push("diagnostic".into());
         }
@@ -1762,6 +2080,63 @@ mod tests {
         assert!(!is_mostly_black_png(&bright, 0.04).unwrap());
     }
 
+    fn sub(name: &str) -> EyesightSubject {
+        EyesightSubject {
+            name: name.into(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn rank_primary_prefers_player_over_crystal() {
+        let subs = vec![sub("Crystal"), sub("Crystal"), sub("Player"), sub("Star1")];
+        assert_eq!(rank_primary_subject(&subs).as_deref(), Some("Player"));
+    }
+
+    #[test]
+    fn rank_primary_prefers_water_over_ore_crystal() {
+        let subs = vec![
+            sub("OreCrystal0"),
+            sub("OreCrystal1"),
+            sub("WaterBody"),
+            sub("Ground"),
+        ];
+        assert_eq!(rank_primary_subject(&subs).as_deref(), Some("WaterBody"));
+    }
+
+    #[test]
+    fn collapse_duplicate_names_counts() {
+        let subs = vec![
+            sub("OreCrystal0"),
+            sub("OreCrystal0"),
+            sub("OreCrystal0"),
+            sub("Player"),
+        ];
+        let out = collapse_duplicate_names(subs);
+        assert_eq!(out.len(), 2);
+        let ore = out.iter().find(|s| s.name == "OreCrystal0").unwrap();
+        assert_eq!(ore.duplicate_count, Some(3));
+        let p = out.iter().find(|s| s.name == "Player").unwrap();
+        assert!(p.duplicate_count.is_none());
+    }
+
+    #[test]
+    fn apply_profile_iron_feud_sets_require_playing() {
+        let mut o = SeeOptions::default();
+        apply_game_profile(&mut o, "iron-feud");
+        assert!(o.require_playing);
+        assert!(matches!(o.projection, ProjectionMode::TopDown3d));
+        assert!(o.wait_for_subjects.iter().any(|s| s == "WaterBody"));
+    }
+
+    #[test]
+    fn diagnostic_primary_allowlist() {
+        let subs = vec![sub("OreCrystal0"), sub("FieldScrap_A")];
+        // WaterBody exact not present; rank may pick FieldScrap via prefix FieldScrap
+        let n = diagnostic_primary_name(&subs);
+        assert!(n.contains("FieldScrap") || n == "FieldScrap_A");
+    }
+
     #[test]
     fn filter_subjects_gameplay_prefer_caps_stars() {
         let mut subs = vec![
@@ -1773,6 +2148,7 @@ mod tests {
                 on_screen: None,
                 screen_xy: None,
                 screen_aabb: None,
+            duplicate_count: None,
             },
             EyesightSubject {
                 name: "Player".into(),
@@ -1782,6 +2158,7 @@ mod tests {
                 on_screen: None,
                 screen_xy: None,
                 screen_aabb: None,
+            duplicate_count: None,
             },
             EyesightSubject {
                 name: "WaterBody".into(),
@@ -1791,6 +2168,7 @@ mod tests {
                 on_screen: None,
                 screen_xy: None,
                 screen_aabb: None,
+            duplicate_count: None,
             },
         ];
         for i in 0..20 {
@@ -1802,6 +2180,7 @@ mod tests {
                 on_screen: None,
                 screen_xy: None,
                 screen_aabb: None,
+            duplicate_count: None,
             });
         }
         let (out, _) = filter_subjects(subs, SubjectFilterMode::GameplayPrefer, 10);
@@ -1820,6 +2199,7 @@ mod tests {
             on_screen: None,
             screen_xy: None,
             screen_aabb: None,
+        duplicate_count: None,
         }];
         assert_eq!(infer_app_state_from_subjects(&playing).as_deref(), Some("Playing"));
         let menu = vec![EyesightSubject {
@@ -1830,6 +2210,7 @@ mod tests {
             on_screen: None,
             screen_xy: None,
             screen_aabb: None,
+        duplicate_count: None,
         }];
         assert!(subjects_look_menu_only(&menu));
         assert!(!subjects_look_menu_only(&playing));
@@ -1845,6 +2226,7 @@ mod tests {
             on_screen: None,
             screen_xy: None,
             screen_aabb: None,
+        duplicate_count: None,
         }];
         annotate_subjects_projection(
             &mut subs,

@@ -58,3 +58,4 @@ The sample app is an **integration fixture** for doctor/BRP/capture CI — not a
 - Troubleshooting: [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)  
 - Agent eyesight baseline (`/goal`): [docs/AGENT_EYESIGHT_PLAN.md](docs/AGENT_EYESIGHT_PLAN.md) — V0–V6 “eyes open”, **not** an editor  
 - Agent eyesight **20/20 acuity** (`/goal`): [docs/AGENT_EYESIGHT_20_20_PLAN.md](docs/AGENT_EYESIGHT_20_20_PLAN.md) — fovea, multi-view, subjects, motion; **taste/design human-owned**  
+- Agent sight **next** (`/goal`): [docs/AGENT_SIGHT_NEXT_PLAN.md](docs/AGENT_SIGHT_NEXT_PLAN.md) — MCP-first ranking/profiles; dogfood CD + IF; **no** video/editor/taste scorer  

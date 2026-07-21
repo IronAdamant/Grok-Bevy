@@ -169,3 +169,24 @@ Dogfood: Crystal Drift + Iron Feud (Playing: `IRON_FEUD_AUTO_PLAY=1`).
 - [x] Plan file landed (`docs/AGENT_EYESIGHT_20_20_PLAN.md`) + roadmap/AGENTS/README links  
 - [x] Phase A0–A8 complete (exit criteria in plan)  
 - [x] Findings: [docs/AGENT_EYESIGHT_20_20_FINDINGS_2026-07-21.md](docs/AGENT_EYESIGHT_20_20_FINDINGS_2026-07-21.md)
+
+---
+
+## Agent sight next — planned
+
+Current-gen observation quality (ranking, collapse, profiles, verify packet).  
+**MCP first**, then dogfood. No livestream / editor / unlit suite / taste scoring.
+
+Plan: [docs/AGENT_SIGHT_NEXT_PLAN.md](docs/AGENT_SIGHT_NEXT_PLAN.md).
+
+| Phase | Name | Status |
+|-------|------|--------|
+| **S0** | MCP/sight code + rebuild (before dogfood) | **done** |
+| **S1** | Crystal Drift: 2 add + 1 improve + env mod + env add | **done** |
+| **S2** | Iron Feud: 2 add + 1 improve + env mod + env add | **done** |
+| **S3** | Live eyesight verify both games (new MCP) | **done** |
+| **S4** | Docs / findings / checkboxes | **done** |
+
+- [x] Plan file landed  
+- [x] S0–S4 complete  
+- [x] Findings: [docs/AGENT_SIGHT_NEXT_FINDINGS_2026-07-21.md](docs/AGENT_SIGHT_NEXT_FINDINGS_2026-07-21.md)

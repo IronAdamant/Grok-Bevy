@@ -30,27 +30,36 @@ Not an editor. Not taste. Schema: `grok-bevy.eyesight/v1` with `acuity: "20/20-c
 | `lighting` | lit still |
 | `diagnostic` | full + bounds outline on fovea |
 
+## Profiles (preferred)
+
+| Profile | Sets |
+|---------|------|
+| `crystal-drift` | ortho2d, wait Player |
+| `iron-feud` | topdown3d, require_playing, wait StrategyCamera/WaterBody/Ground |
+
+`primary_subject` is **ranked** (Player/WaterBody over Crystal/OreCrystal).  
+`bevy_see_verify` / `grok-bevy see verify` = full + fovea (+zoom).
+
 ## Projection
 
 - `ortho2d` — Crystal Drift (world XY)  
 - `topdown3d` — Iron Feud StrategyCamera (world XZ)  
-- `--visible-half-w/h` scale world→screen  
+- `--visible-half-w/h` scale world→screen (profiles set defaults)
 
 ## Examples
 
 ```bash
 # Crystal Drift
-grok-bevy see scene --out-dir . --wait-for Player --save-baseline captures/eyesight/baseline.png
-grok-bevy see entity --name Player --half 120
-grok-bevy see scene --compare-baseline captures/eyesight/baseline.png
+grok-bevy see verify --profile crystal-drift --out-dir . --save-baseline captures/eyesight/baseline_scene.png
+grok-bevy see pack landscape --profile crystal-drift --out-dir .
 
 # Iron Feud Playing
 IRON_FEUD_AUTO_PLAY=1 cargo run --features remote,capture
-grok-bevy see scene --require-playing --wait-for WaterBody --wait-for Ground \
-  --projection topdown3d --visible-half-w 20 --visible-half-h 20
-grok-bevy see entity --name WaterBody --projection topdown3d --visible-half-w 20 --visible-half-h 20
-grok-bevy see pack water --projection topdown3d
+grok-bevy see verify --profile iron-feud --out-dir .
+grok-bevy see pack water --profile iron-feud --out-dir .
 ```
+
+**MCP first:** rebuild/reload grok-bevy after sight code changes before dogfood captures.
 
 ## Dual instances
 
