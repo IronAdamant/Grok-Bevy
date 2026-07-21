@@ -7,7 +7,11 @@ mod scaffold;
 
 use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
-use grok_bevy_brp::{capture_viewport_image, BrpClient, BrpTarget, DEFAULT_PORT};
+use grok_bevy_brp::{
+    capture_viewport_image, see_diff, see_entity, see_motion, see_pack, see_region, see_scene,
+    BrpClient, BrpTarget, SeeOptions, DEFAULT_CROP_HALF, DEFAULT_MOTION_FRAMES,
+    DEFAULT_MOTION_INTERVAL_MS, DEFAULT_PORT,
+};
 use grok_bevy_env::{
     check_readiness, format_report_text, DoctorOptions, SystemCommandRunner,
 };
@@ -78,6 +82,100 @@ enum Commands {
         /// Path to the grok-bevy binary to embed (default: this executable).
         #[arg(long)]
         bin: Option<PathBuf>,
+    },
+    /// Agent eyesight (see_scene / entity / region / motion / diff / pack) — not an editor.
+    See {
+        #[command(subcommand)]
+        cmd: SeeCommands,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum SeeCommands {
+    /// Full-frame capture + subject list → eyesight packet JSON.
+    Scene {
+        #[arg(long, default_value_t = DEFAULT_PORT)]
+        port: u16,
+        #[arg(long, default_value = ".")]
+        out_dir: PathBuf,
+        #[arg(long, default_value = "verify scene appearance")]
+        intent: String,
+        #[arg(long)]
+        style_intent: Option<String>,
+    },
+    /// Fovea crop around a named entity (screen coords optional, default center).
+    Entity {
+        #[arg(long, default_value_t = DEFAULT_PORT)]
+        port: u16,
+        #[arg(long, default_value = ".")]
+        out_dir: PathBuf,
+        #[arg(long)]
+        name: String,
+        #[arg(long)]
+        screen_x: Option<u32>,
+        #[arg(long)]
+        screen_y: Option<u32>,
+        #[arg(long, default_value_t = DEFAULT_CROP_HALF)]
+        half: u32,
+        #[arg(long, default_value = "inspect entity craft")]
+        intent: String,
+    },
+    /// Pixel-rect region crop.
+    Region {
+        #[arg(long, default_value_t = DEFAULT_PORT)]
+        port: u16,
+        #[arg(long, default_value = ".")]
+        out_dir: PathBuf,
+        #[arg(long)]
+        x: u32,
+        #[arg(long)]
+        y: u32,
+        #[arg(long)]
+        w: u32,
+        #[arg(long)]
+        h: u32,
+        #[arg(long, default_value = "region")]
+        label: String,
+        #[arg(long, default_value = "inspect region")]
+        intent: String,
+    },
+    /// Temporal strip of frames (optional keys stimulus).
+    Motion {
+        #[arg(long, default_value_t = DEFAULT_PORT)]
+        port: u16,
+        #[arg(long, default_value = ".")]
+        out_dir: PathBuf,
+        #[arg(long, default_value_t = DEFAULT_MOTION_FRAMES)]
+        frames: u32,
+        #[arg(long, default_value_t = DEFAULT_MOTION_INTERVAL_MS)]
+        interval_ms: u64,
+        #[arg(long = "key")]
+        keys: Vec<String>,
+        #[arg(long, default_value = "judge motion / physics feel")]
+        intent: String,
+    },
+    /// Before/after vs baseline PNG.
+    Diff {
+        #[arg(long, default_value_t = DEFAULT_PORT)]
+        port: u16,
+        #[arg(long, default_value = ".")]
+        out_dir: PathBuf,
+        #[arg(long)]
+        baseline: PathBuf,
+        #[arg(long, default_value = "before/after refinement")]
+        intent: String,
+    },
+    /// Multi-view pack: entity_craft | landscape | water | physics_jump | lighting.
+    Pack {
+        #[arg(long, default_value_t = DEFAULT_PORT)]
+        port: u16,
+        #[arg(long, default_value = ".")]
+        out_dir: PathBuf,
+        pack: String,
+        #[arg(long, default_value = "multi-view eyesight pack")]
+        intent: String,
+        #[arg(long)]
+        style_intent: Option<String>,
     },
 }
 
@@ -187,7 +285,120 @@ fn main() -> Result<()> {
             print_mcp_config(bin)?;
             Ok(())
         }
+        Commands::See { cmd } => cmd_see(cmd),
     }
+}
+
+fn cmd_see(cmd: SeeCommands) -> Result<()> {
+    match cmd {
+        SeeCommands::Scene {
+            port,
+            out_dir,
+            intent,
+            style_intent,
+        } => {
+            let client = BrpClient::with_port(port);
+            let opts = SeeOptions {
+                out_dir,
+                intent,
+                style_intent,
+                ..SeeOptions::default()
+            };
+            let packet = see_scene(&client, &opts)?;
+            println!("{}", packet.to_pretty_json()?);
+        }
+        SeeCommands::Entity {
+            port,
+            out_dir,
+            name,
+            screen_x,
+            screen_y,
+            half,
+            intent,
+        } => {
+            let client = BrpClient::with_port(port);
+            let opts = SeeOptions {
+                out_dir,
+                intent,
+                subject_class: "entity".into(),
+                ..SeeOptions::default()
+            };
+            let packet = see_entity(&client, &opts, &name, screen_x, screen_y, half)?;
+            println!("{}", packet.to_pretty_json()?);
+        }
+        SeeCommands::Region {
+            port,
+            out_dir,
+            x,
+            y,
+            w,
+            h,
+            label,
+            intent,
+        } => {
+            let client = BrpClient::with_port(port);
+            let opts = SeeOptions {
+                out_dir,
+                intent,
+                subject_class: "landscape".into(),
+                ..SeeOptions::default()
+            };
+            let packet = see_region(&client, &opts, x, y, w, h, &label)?;
+            println!("{}", packet.to_pretty_json()?);
+        }
+        SeeCommands::Motion {
+            port,
+            out_dir,
+            frames,
+            interval_ms,
+            keys,
+            intent,
+        } => {
+            let client = BrpClient::with_port(port);
+            let opts = SeeOptions {
+                out_dir,
+                intent,
+                subject_class: "physics_motion".into(),
+                ..SeeOptions::default()
+            };
+            let keys = if keys.is_empty() { None } else { Some(keys) };
+            let packet = see_motion(&client, &opts, frames, interval_ms, keys)?;
+            println!("{}", packet.to_pretty_json()?);
+        }
+        SeeCommands::Diff {
+            port,
+            out_dir,
+            baseline,
+            intent,
+        } => {
+            let client = BrpClient::with_port(port);
+            let opts = SeeOptions {
+                out_dir,
+                intent,
+                ..SeeOptions::default()
+            };
+            let packet = see_diff(&client, &opts, baseline)?;
+            println!("{}", packet.to_pretty_json()?);
+        }
+        SeeCommands::Pack {
+            port,
+            out_dir,
+            pack,
+            intent,
+            style_intent,
+        } => {
+            let client = BrpClient::with_port(port);
+            let opts = SeeOptions {
+                out_dir,
+                intent,
+                style_intent,
+                ..SeeOptions::default()
+            };
+            let packet = see_pack(&client, &opts, &pack)?;
+            println!("{}", packet.to_pretty_json()?);
+        }
+    }
+    Ok(())
 }
 
 fn cmd_doctor(compile_probe: bool, json: bool, bevy_version: String) -> Result<()> {

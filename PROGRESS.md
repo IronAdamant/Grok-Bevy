@@ -115,3 +115,32 @@ Steam is **later** (G5); non-Steam package is G4.
 ### G6 — Install ergonomics
 - [x] Reliable templates after install / embedded templates (`include_dir` in `grok-bevy`; fallback extract to cache when monorepo path missing)
 - [x] Optional kit feature `physics` (avian2d/avian3d **0.7**); default kits stay transform-based
+
+---
+
+## Agent eyesight (long-horizon) — planned
+
+**Not an editor.** Sensory stack so agents can see graphics (entity, landscape, water) and motion/physics, judge for human taste, and re-see after fixes.
+
+Durable plan + phase checkboxes: [docs/AGENT_EYESIGHT_PLAN.md](docs/AGENT_EYESIGHT_PLAN.md).  
+Execute with `/goal` against one phase at a time.
+
+| Phase | Name | Status |
+|-------|------|--------|
+| **V0** | Eyesight discipline (skills/docs; open captures as evidence) | **done** |
+| **V1** | `bevy_see_scene` packet (full frame + thin context) | **done** |
+| **V2** | Fovea: `bevy_see_entity` / `bevy_see_region` crops | **done** |
+| **V3** | Temporal + physics eyesight (`bevy_see_motion`) | **done** |
+| **V4** | Diff + multi-view packs (landscape / water / 3D) | **done** |
+| **V5** | Style-aware art loop (see → regen → see_diff) | **done** |
+| **V6** | Harden multi-target / black-frame / CI | **done** |
+
+- [x] Plan file landed (`docs/AGENT_EYESIGHT_PLAN.md`) + roadmap link
+- [x] Phase V0 complete (exit criteria in plan)
+- [x] Phase V1 complete
+- [x] Phase V2 complete
+- [x] Phase V3 complete
+- [x] Phase V4 complete
+- [x] Phase V5 complete
+- [x] Phase V6 complete
+- [x] Findings: [docs/AGENT_EYESIGHT_FINDINGS_2026-07-21.md](docs/AGENT_EYESIGHT_FINDINGS_2026-07-21.md)

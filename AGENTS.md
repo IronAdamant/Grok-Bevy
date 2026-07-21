@@ -56,3 +56,4 @@ The sample app is an **integration fixture** for doctor/BRP/capture CI — not a
 - Production: [docs/PRODUCTION_GAMES.md](docs/PRODUCTION_GAMES.md)  
 - Fast start: [docs/FAST_START.md](docs/FAST_START.md)  
 - Troubleshooting: [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)  
+- Agent eyesight (long-horizon, `/goal`): [docs/AGENT_EYESIGHT_PLAN.md](docs/AGENT_EYESIGHT_PLAN.md) — agent senses for graphics/physics, **not** an editor  

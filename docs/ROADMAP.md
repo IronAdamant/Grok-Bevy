@@ -39,9 +39,12 @@ G6 parallel after G2
 
 ## Agentic loop
 
-Skills (HOW) → kit/templates (WHERE) → dogfood or scaffold (BUILD) → MCP capture (VERIFY) → package (SHIP DEMO) → later Steam checklist.
+Skills (HOW) → kit/templates (WHERE) → dogfood or scaffold (BUILD) → **agent eyesight** (see / judge / re-see) → package (SHIP DEMO) → later Steam checklist.
+
+MCP capture is the optic nerve; long-horizon **agent eyesight** (entity, landscape, water, physics-as-motion) is planned in [AGENT_EYESIGHT_PLAN.md](AGENT_EYESIGHT_PLAN.md) — agent senses, **not** a Bevy editor. Execute phases with `/goal` against that doc.
 
 ## Tracking
 
 Checklist: [PROGRESS.md](../PROGRESS.md) (v0.3+).  
+Eyesight phases: [AGENT_EYESIGHT_PLAN.md](AGENT_EYESIGHT_PLAN.md) (V0–V6).  
 Session plan detail: maintained in agent sessions; this file is the **durable product roadmap**.

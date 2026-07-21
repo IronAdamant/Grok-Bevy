@@ -5,6 +5,16 @@
 //! tool surface is provided by `bevy_brp_mcp`; this crate is the thin client
 //! layer Grok-Bevy uses for CLI, MCP tools, and tests.
 
+pub mod eyesight;
+
+pub use eyesight::{
+    crop_png_around, crop_png_file, crop_rgba, eyesight_path, is_mostly_black_png, mean_abs_diff,
+    montage_horizontal, packet_to_mcp_content, see_diff, see_entity, see_motion, see_pack,
+    see_region, see_scene, subjects_from_query, world_to_screen_ortho, write_diff_png,
+    CaptureEntry, CaptureRole, EyesightPacket, EyesightSubject, RgbaImage, SeeOptions, StimulusInfo,
+    DEFAULT_CROP_HALF, DEFAULT_MOTION_FRAMES, DEFAULT_MOTION_INTERVAL_MS, EYESIGHT_SCHEMA,
+};
+
 use anyhow::{anyhow, Context, Result};
 use base64::{engine::general_purpose::STANDARD as B64, Engine};
 use serde::{Deserialize, Serialize};
@@ -391,6 +401,11 @@ pub fn validate_png_header(bytes: &[u8]) -> Result<()> {
 }
 
 fn read_png_ihdr_size(bytes: &[u8]) -> Result<(Option<u32>, Option<u32>)> {
+    read_png_ihdr_size_pub(bytes)
+}
+
+/// Public IHDR width/height reader (used by eyesight packets).
+pub fn read_png_ihdr_size_pub(bytes: &[u8]) -> Result<(Option<u32>, Option<u32>)> {
     // IHDR is the first chunk: 8 sig + 4 len + 4 type + data
     if bytes.len() < 24 {
         return Ok((None, None));

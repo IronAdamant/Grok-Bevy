@@ -10,13 +10,26 @@ metadata:
 
 # Bevy agent loop (MCP + BRP)
 
-You control a **running** Bevy app. Prefer evidence from **viewport capture** over guessing.
+You control a **running** Bevy app. Prefer evidence from **agent eyesight** (pixels you open and judge) over guessing.  
+This is **not a Bevy editor** — eyesight is a sensory channel for the agent brain.
+
+Plan: `docs/AGENT_EYESIGHT_PLAN.md` (schema `grok-bevy.eyesight/v1`).
 
 ## Pins
 
 - BRP default port **15702**  
 - App must enable features **`remote,capture`** and add `BrpExtrasPlugin` when `remote` is on  
 - Prefer full **`bevy_brp_mcp`** when installed for hierarchy/watches/input  
+
+## Eyesight rules (hard — V0 discipline)
+
+1. **Pixels are primary.** Query without opening captures is not eyesight.  
+2. **Open every PNG** returned (`abs_path` if chat truncates image bytes).  
+3. **Aesthetic / physics-feel claims must cite capture paths** (and preferably what you saw).  
+4. **Refine with compare:** baseline → change → `bevy_see_diff` or second `bevy_see_scene`.  
+5. **Subject classes:** entity, landscape, water, fx, lighting, ui, physics_motion — pick a pack when needed.  
+6. **Style intent:** when refining art, pass `style_intent` and chain to `game-asset-core` if the look is wrong.  
+7. **Black-frame warning** in packets: check minimized window, lights, camera, Loading state — do not invent beauty.
 
 ## Standard loop (hard requirements)
 
@@ -28,11 +41,11 @@ You control a **running** Bevy app. Prefer evidence from **viewport capture** ov
      `features: "remote,capture"` and **`wait_secs: 0`** (default; returns immediately; may spawn the debug binary).  
    - **Always** next: step 3. Do **not** set high `wait_secs` on launch (host tool timeouts ~120s).  
 3. **Wait** with MCP **`bevy_wait_brp`** (`timeout_secs` **180** cold / **30** warm) or CLI `grok-bevy brp wait --timeout-secs 180`.  
-4. **Query** named entities / transforms (`bevy_brp_query`).  
-5. **Mutate** if needed (`bevy_brp_mutate` — fully-qualified Reflect type paths).  
-6. **`bevy_capture_viewport`** — read the image; if chat truncates bytes, open **`abs_path`** from the text block.  
-7. **Fix code or assets** → rebuild/restart if needed → capture again.  
-8. Stop when the capture matches the acceptance criteria.
+4. **`bevy_see_scene`** (or CLI `grok-bevy see scene --out-dir .`) — open packet captures + subjects.  
+5. **Fovea / motion as needed:** `bevy_see_entity`, `bevy_see_region`, `bevy_see_motion`, `bevy_see_pack`.  
+6. **Mutate** if needed (`bevy_brp_mutate`) then **re-see** (`bevy_see_diff` with baseline).  
+7. **Fix code or assets** → rebuild/restart if needed → eyesight again.  
+8. Stop when the glance test would pass for a non-author human.
 
 ### Dual launch / one BRP port
 
@@ -50,8 +63,16 @@ Default BRP port is **15702**. Only **one** app should bind that port. Dual `car
 | `bevy_brp_query` | Read components |
 | `bevy_brp_mutate` | Write field |
 | `bevy_brp_call` | Arbitrary BRP / `brp_extras/*` |
-| `bevy_capture_viewport` | PNG as MCP image (`brp_extras/screenshot`) |
+| `bevy_capture_viewport` | Raw PNG as MCP image (`brp_extras/screenshot`) |
+| `bevy_see_scene` | E0 eyesight packet (full + subjects + abs_path) |
+| `bevy_see_entity` | E1 fovea crop for named entity |
+| `bevy_see_region` | E1 pixel-rect crop (landscape / water / HUD) |
+| `bevy_see_motion` | E2 temporal strip (+ optional keys) |
+| `bevy_see_diff` | E3 baseline vs after (+ abs-diff) |
+| `bevy_see_pack` | Multi-view: entity_craft / landscape / water / physics_jump / lighting |
 | `bevy_brp_mcp_status` | Upstream MCP install help |
+
+CLI mirrors: `grok-bevy see scene|entity|region|motion|diff|pack`.
 
 ## Exact BRP method names (do not invent)
 

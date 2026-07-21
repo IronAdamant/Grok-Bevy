@@ -7,7 +7,9 @@
 
 use anyhow::{anyhow, Context, Result};
 use grok_bevy_brp::{
-    capture_viewport_image, BrpClient, BrpTarget, CapturedImage, TargetRegistry, DEFAULT_PORT,
+    capture_viewport_image, packet_to_mcp_content, see_diff, see_entity, see_motion, see_pack,
+    see_region, see_scene, BrpClient, BrpTarget, CapturedImage, SeeOptions, TargetRegistry,
+    DEFAULT_CROP_HALF, DEFAULT_MOTION_FRAMES, DEFAULT_MOTION_INTERVAL_MS, DEFAULT_PORT,
 };
 use grok_bevy_env::{check_readiness, DoctorOptions, SystemCommandRunner};
 use serde_json::{json, Value};
@@ -144,7 +146,9 @@ pub fn mcp_instructions() -> String {
         "MCP prompts: start_2d_game, start_3d_game, build_demo_2d, build_demo_3d, iterate_scene, prepare_ship, package_demo. ",
         "bevy_workflow goals: new_2d|new_3d|complete_demo_2d|complete_demo_3d|verify_scene|ship|package_demo|add_sprite. ",
         "Asset roots: assets/sprites, models, ui, audio. Ship: cargo build --release; package binary + assets. ",
-        "Loop: bevy_env_check → bevy_launch_app (non-blocking, wait_secs=0) → bevy_wait_brp → query/mutate → bevy_capture_viewport. Port 15702. ",
+        "Loop: bevy_env_check → bevy_launch_app (non-blocking, wait_secs=0) → bevy_wait_brp → query/mutate → eyesight (bevy_see_scene / bevy_capture_viewport). Port 15702. ",
+        "Agent eyesight (not an editor): bevy_see_scene, bevy_see_entity, bevy_see_region, bevy_see_motion, bevy_see_diff, bevy_see_pack — open every PNG abs_path; aesthetic claims need capture evidence. ",
+        "Plan: docs/AGENT_EYESIGHT_PLAN.md. Skill: bevy-agent-loop. ",
         "Cold compile: prefer shell `cargo run --features remote,capture` then bevy_wait_brp; MCP launch is best after a warm target/. ",
         "bevy_workflow is a router (skills+steps), not an autopilot. Optional full BRP: cargo install bevy_brp_mcp --locked."
     )
@@ -219,14 +223,14 @@ pub fn prompt_catalog() -> &'static [PromptDef] {
             description:
                 "Live BRP/MCP loop: launch, query/mutate, capture viewport, fix, recapture.",
             body: concat!(
-                "Iterate on a running Bevy app with evidence from viewport captures.\n\n",
+                "Iterate on a running Bevy app with agent eyesight (pixels + subjects), not guesses.\n\n",
                 "1. Load skill: bevy-agent-loop (and bevy-production / bevy-demo-game if incomplete DoD).\n",
                 "2. Ensure the app uses features remote,capture and BRP port 15702 (or registered target).\n",
-                "3. MCP loop: bevy_env_check → bevy_launch_app (wait_secs=0) → bevy_wait_brp → bevy_brp_discover/query → ",
-                "optional bevy_brp_mutate → bevy_capture_viewport → describe defects → patch code/art → recapture.\n",
-                "4. Prefer fully-qualified Reflect type paths; Name entities for readable queries.\n",
-                "5. For full hierarchy/watches/input injection use bevy_brp_mcp when installed.\n",
-                "6. Optional: bevy_workflow goal \"verify_scene\".\n",
+                "3. MCP loop: bevy_env_check → bevy_launch_app (wait_secs=0) → bevy_wait_brp → bevy_see_scene (open PNGs) → ",
+                "optional bevy_see_entity / bevy_see_motion / bevy_see_diff → describe defects → patch → re-see.\n",
+                "4. Aesthetic claims require opened capture paths. Prefer Name entities.\n",
+                "5. Packs: bevy_see_pack (entity_craft|landscape|water|physics_jump|lighting).\n",
+                "6. Optional: bevy_workflow goal \"verify_scene\". Plan: docs/AGENT_EYESIGHT_PLAN.md.\n",
             ),
         },
         PromptDef {
@@ -398,18 +402,19 @@ pub fn workflow_plan(goal: WorkflowGoal) -> String {
         )
         .to_string(),
         WorkflowGoal::VerifyScene => concat!(
-            "Goal: verify_scene — live iterate with capture evidence\n",
+            "Goal: verify_scene — agent eyesight packet + judgment (not editor)\n",
             "Skills to load:\n",
             "  1. bevy-agent-loop\n",
             "  2. bevy-demo-game / bevy-production if DoD incomplete\n",
             "Steps:\n",
             "  1. Confirm app features remote,capture; BRP port 15702\n",
             "  2. MCP: bevy_launch_app (wait_secs=0) if not running; cold compile prefer shell cargo run\n",
-            "  3. MCP: bevy_wait_brp → bevy_brp_discover → bevy_brp_query\n",
-            "  4. Optional: bevy_brp_mutate for quick transform checks\n",
-            "  5. MCP: bevy_capture_viewport — inspect image, list defects\n",
-            "  6. Patch code or assets; recapture until acceptance\n",
-            "  7. Optional prompt: iterate_scene\n",
+            "  3. MCP: bevy_wait_brp → bevy_see_scene (OPEN every abs_path PNG + read packet JSON)\n",
+            "  4. Optional: bevy_see_entity / bevy_see_region (fovea) or bevy_see_motion (physics feel)\n",
+            "  5. Optional: bevy_see_pack landscape|water|entity_craft|physics_jump\n",
+            "  6. Optional: bevy_see_diff with baseline path for before/after\n",
+            "  7. Patch code or assets; re-see until glance test passes\n",
+            "  8. Aesthetic claims must cite capture paths (docs/AGENT_EYESIGHT_PLAN.md)\n",
         )
         .to_string(),
         WorkflowGoal::Ship => concat!(
@@ -640,6 +645,110 @@ fn tool_defs() -> Value {
                     }
                 },
                 "required": ["goal"]
+            }
+        },
+        {
+            "name": "bevy_see_scene",
+            "description": "Agent eyesight E0: full-window capture + named subjects (Name/Transform) as grok-bevy.eyesight/v1 packet. OPEN abs_path PNGs. Not an editor.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "port": { "type": "integer", "default": 15702 },
+                    "target": { "type": "string" },
+                    "out_dir": { "type": "string", "description": "Project root for captures/eyesight/", "default": "." },
+                    "intent": { "type": "string", "default": "verify scene appearance" },
+                    "style_intent": { "type": "string" },
+                    "subject_class": { "type": "string", "default": "scene" }
+                }
+            }
+        },
+        {
+            "name": "bevy_see_entity",
+            "description": "Agent eyesight E1 fovea: full frame + crop around screen point (default center) for a named entity. OPEN crop PNG.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "port": { "type": "integer", "default": 15702 },
+                    "target": { "type": "string" },
+                    "out_dir": { "type": "string", "default": "." },
+                    "name": { "type": "string", "description": "Entity Name to inspect" },
+                    "screen_x": { "type": "integer" },
+                    "screen_y": { "type": "integer" },
+                    "half": { "type": "integer", "default": 96 },
+                    "intent": { "type": "string", "default": "inspect entity craft" },
+                    "style_intent": { "type": "string" }
+                },
+                "required": ["name"]
+            }
+        },
+        {
+            "name": "bevy_see_region",
+            "description": "Agent eyesight E1 region crop by pixel rect (landscape patch, water surface, HUD).",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "port": { "type": "integer", "default": 15702 },
+                    "target": { "type": "string" },
+                    "out_dir": { "type": "string", "default": "." },
+                    "x": { "type": "integer" },
+                    "y": { "type": "integer" },
+                    "w": { "type": "integer" },
+                    "h": { "type": "integer" },
+                    "label": { "type": "string", "default": "region" },
+                    "intent": { "type": "string", "default": "inspect region" },
+                    "subject_class": { "type": "string", "default": "landscape" }
+                },
+                "required": ["x", "y", "w", "h"]
+            }
+        },
+        {
+            "name": "bevy_see_motion",
+            "description": "Agent eyesight E2: short temporal strip (default 6 frames) + optional key stimulus for physics/feel judgment.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "port": { "type": "integer", "default": 15702 },
+                    "target": { "type": "string" },
+                    "out_dir": { "type": "string", "default": "." },
+                    "frames": { "type": "integer", "default": 6 },
+                    "interval_ms": { "type": "integer", "default": 80 },
+                    "keys": { "type": "array", "items": { "type": "string" } },
+                    "intent": { "type": "string", "default": "judge motion / physics feel" }
+                }
+            }
+        },
+        {
+            "name": "bevy_see_diff",
+            "description": "Agent eyesight E3: capture after + compare to baseline PNG (abs-diff image + packet).",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "port": { "type": "integer", "default": 15702 },
+                    "target": { "type": "string" },
+                    "out_dir": { "type": "string", "default": "." },
+                    "baseline": { "type": "string", "description": "Path to baseline PNG" },
+                    "intent": { "type": "string", "default": "before/after refinement" }
+                },
+                "required": ["baseline"]
+            }
+        },
+        {
+            "name": "bevy_see_pack",
+            "description": "Agent eyesight multi-view pack: entity_craft | landscape | water | physics_jump | lighting.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "port": { "type": "integer", "default": 15702 },
+                    "target": { "type": "string" },
+                    "out_dir": { "type": "string", "default": "." },
+                    "pack": {
+                        "type": "string",
+                        "description": "entity_craft | landscape | water | physics_jump | lighting"
+                    },
+                    "intent": { "type": "string", "default": "multi-view eyesight pack" },
+                    "style_intent": { "type": "string" }
+                },
+                "required": ["pack"]
             }
         }
     ])
@@ -951,7 +1060,129 @@ async fn call_tool(name: &str, args: Value, state: Arc<Mutex<ServerState>>) -> R
             let goal = WorkflowGoal::parse(goal_str)?;
             text_result(workflow_plan(goal))
         }
+        "bevy_see_scene" => {
+            let client = client_from_args(&args, &state).await?;
+            let opts = see_opts_from_args(&args);
+            let packet = tokio::task::spawn_blocking(move || see_scene(&client, &opts)).await??;
+            packet_to_mcp_content(&packet)
+        }
+        "bevy_see_entity" => {
+            let client = client_from_args(&args, &state).await?;
+            let opts = see_opts_from_args(&args);
+            let name = args["name"]
+                .as_str()
+                .ok_or_else(|| anyhow!("name required"))?
+                .to_string();
+            let sx = args.get("screen_x").and_then(|v| v.as_u64()).map(|v| v as u32);
+            let sy = args.get("screen_y").and_then(|v| v.as_u64()).map(|v| v as u32);
+            let half = args
+                .get("half")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(DEFAULT_CROP_HALF as u64) as u32;
+            let packet = tokio::task::spawn_blocking(move || {
+                see_entity(&client, &opts, &name, sx, sy, half)
+            })
+            .await??;
+            packet_to_mcp_content(&packet)
+        }
+        "bevy_see_region" => {
+            let client = client_from_args(&args, &state).await?;
+            let opts = see_opts_from_args(&args);
+            let x = args["x"].as_u64().ok_or_else(|| anyhow!("x required"))? as u32;
+            let y = args["y"].as_u64().ok_or_else(|| anyhow!("y required"))? as u32;
+            let w = args["w"].as_u64().ok_or_else(|| anyhow!("w required"))? as u32;
+            let h = args["h"].as_u64().ok_or_else(|| anyhow!("h required"))? as u32;
+            let label = args
+                .get("label")
+                .and_then(|v| v.as_str())
+                .unwrap_or("region")
+                .to_string();
+            let packet = tokio::task::spawn_blocking(move || {
+                see_region(&client, &opts, x, y, w, h, &label)
+            })
+            .await??;
+            packet_to_mcp_content(&packet)
+        }
+        "bevy_see_motion" => {
+            let client = client_from_args(&args, &state).await?;
+            let opts = see_opts_from_args(&args);
+            let frames = args
+                .get("frames")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(DEFAULT_MOTION_FRAMES as u64) as u32;
+            let interval_ms = args
+                .get("interval_ms")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(DEFAULT_MOTION_INTERVAL_MS);
+            let keys = args.get("keys").and_then(|v| v.as_array()).map(|a| {
+                a.iter()
+                    .filter_map(|x| x.as_str().map(|s| s.to_string()))
+                    .collect::<Vec<_>>()
+            });
+            let packet = tokio::task::spawn_blocking(move || {
+                see_motion(&client, &opts, frames, interval_ms, keys)
+            })
+            .await??;
+            packet_to_mcp_content(&packet)
+        }
+        "bevy_see_diff" => {
+            let client = client_from_args(&args, &state).await?;
+            let opts = see_opts_from_args(&args);
+            let baseline = args["baseline"]
+                .as_str()
+                .ok_or_else(|| anyhow!("baseline required"))?
+                .to_string();
+            let packet = tokio::task::spawn_blocking(move || {
+                see_diff(&client, &opts, PathBuf::from(baseline))
+            })
+            .await??;
+            packet_to_mcp_content(&packet)
+        }
+        "bevy_see_pack" => {
+            let client = client_from_args(&args, &state).await?;
+            let opts = see_opts_from_args(&args);
+            let pack = args["pack"]
+                .as_str()
+                .ok_or_else(|| anyhow!("pack required"))?
+                .to_string();
+            let packet =
+                tokio::task::spawn_blocking(move || see_pack(&client, &opts, &pack)).await??;
+            packet_to_mcp_content(&packet)
+        }
         other => Err(anyhow!("unknown tool: {other}")),
+    }
+}
+
+fn see_opts_from_args(args: &Value) -> SeeOptions {
+    SeeOptions {
+        out_dir: PathBuf::from(
+            args.get("out_dir")
+                .and_then(|v| v.as_str())
+                .unwrap_or("."),
+        ),
+        subject_class: args
+            .get("subject_class")
+            .and_then(|v| v.as_str())
+            .unwrap_or("scene")
+            .to_string(),
+        intent: args
+            .get("intent")
+            .and_then(|v| v.as_str())
+            .unwrap_or("verify scene appearance")
+            .to_string(),
+        style_intent: args
+            .get("style_intent")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        app_state: args
+            .get("app_state")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        target_name: args
+            .get("target")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        port: args.get("port").and_then(|v| v.as_u64()).map(|v| v as u16),
     }
 }
 
@@ -1079,7 +1310,9 @@ mod tests {
 
         let iterate = workflow_plan(WorkflowGoal::parse("verify_scene").unwrap());
         assert!(iterate.contains("bevy-agent-loop"));
-        assert!(iterate.contains("bevy_capture_viewport"));
+        assert!(
+            iterate.contains("bevy_see_scene") || iterate.contains("bevy_capture_viewport")
+        );
 
         assert!(WorkflowGoal::parse("not_a_goal").is_err());
     }
@@ -1096,6 +1329,30 @@ mod tests {
         assert!(names.contains(&"bevy_capture_viewport"));
         assert!(names.contains(&"bevy_wait_brp"));
         assert!(names.contains(&"bevy_launch_app"));
+        for see in [
+            "bevy_see_scene",
+            "bevy_see_entity",
+            "bevy_see_region",
+            "bevy_see_motion",
+            "bevy_see_diff",
+            "bevy_see_pack",
+        ] {
+            assert!(names.contains(&see), "missing eyesight tool {see}");
+        }
+    }
+
+    #[test]
+    fn instructions_mention_eyesight() {
+        let s = mcp_instructions();
+        assert!(s.contains("bevy_see_scene") || s.contains("eyesight"));
+        assert!(s.contains("AGENT_EYESIGHT") || s.contains("open every PNG"));
+    }
+
+    #[test]
+    fn verify_scene_mentions_see_scene() {
+        let plan = workflow_plan(WorkflowGoal::VerifyScene);
+        assert!(plan.contains("bevy_see_scene"));
+        assert!(plan.contains("abs_path") || plan.contains("OPEN"));
     }
 
     #[test]
