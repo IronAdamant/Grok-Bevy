@@ -151,8 +151,9 @@ pub fn mcp_instructions() -> String {
         "Agent sight (not editor, not taste): bevy_see_scene|verify|entity|region|motion|diff|pack. ",
         "Profiles: crystal-drift (2D ortho) | iron-feud (3D topdown, require_playing). primary_subject ranked (Player/WaterBody over Crystal/OreCrystal). ",
         "Packs: entity_craft|landscape|water|physics_jump|lighting|diagnostic|hud|env_2d. Landscape notes height_bands when TerrainFlat/Hill/Peak present. ",
-        "Open every PNG abs_path. bevy_see_verify = full+fovea (use first). Iron Feud: IRON_FEUD_AUTO_PLAY=1. No livestream. ",
-        "Taste/design human-owned. Plan: docs/AGENT_SIGHT_2D3D_PLAN.md. Skill: bevy-agent-loop. ",
+        "Open every PNG abs_path. bevy_see_verify = full+fovea (use first). After asset/env change: save_baseline then compare_baseline. ",
+        "Iron Feud: IRON_FEUD_AUTO_PLAY=1. Sequential BRP 15702 only. New Names need GAMEPLAY_NAME_HINTS score>0. No livestream. ",
+        "Taste/design human-owned. Plan: docs/AGENT_SIGHT_DEBT_PLAN.md. Skill: bevy-agent-loop. ",
         "Cold compile: prefer shell `cargo run --features remote,capture` then bevy_wait_brp; MCP launch is best after a warm target/. ",
         "bevy_workflow is a router (skills+steps), not an autopilot. Optional full BRP: cargo install bevy_brp_mcp --locked."
     )

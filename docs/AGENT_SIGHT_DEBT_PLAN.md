@@ -1,6 +1,6 @@
 # Agent Sight Debt Plan — residual acuity + full dogfood asset/env pass
 
-**Status:** planning (ready for `/goal` in a **new session**)  
+**Status:** complete (R0–R4 shipped 2026-07-23)  
 **Audience:** implementing agent under `/goal`; human may be away for a long session  
 **Identity:** Grok-Bevy is **agent assistant infrastructure**, not a Bevy editor.  
 **Focus:** close **remaining sight debt** (filter, 3D multi-view, craft fidelity, dual-port honesty), then dogfood by **(1)** one new Named feature+asset per game, **(2)** one new environment element per game, and **(3)** **improving every existing asset and environment** on Crystal Drift and Iron Feud so live packets prove the upgrade.
@@ -85,30 +85,30 @@ Implement in `crates/grok-bevy-brp` / `crates/grok-bevy`. Pure logic unit-tested
 
 ### R0.1 Filter / ranking debt (R1, R2)
 
-- [ ] Document **Name onboarding rule** in skill + code comment: every new dogfood Name stem must score `gameplay_subject_score > 0`.  
-- [ ] Add/extend unit tests: every stem planned in R1/R2 (new feature + new env Names) scores >0 and survives `GameplayPrefer` with OreCrystal spam present.  
-- [ ] Harden demotion of `OreCrystal*` and child mesh parts; ensure `WaterBody` never treated as noise.  
-- [ ] Optional pure helper: `list_subject_stems_requiring_hints(&[...])` or table of dogfood stems shared with tests.  
-- [ ] Prefer collapsing **local-space children** (translation ~0 parent-relative already collapsed by name where possible) so WatchPostLegs etc. never crowd max_subjects.
+- [x] Document **Name onboarding rule** in skill + code comment: every new dogfood Name stem must score `gameplay_subject_score > 0`.  
+- [x] Add/extend unit tests: every stem planned in R1/R2 (new feature + new env Names) scores >0 and survives `GameplayPrefer` with OreCrystal spam present.  
+- [x] Harden demotion of `OreCrystal*` and child mesh parts; ensure `WaterBody` never treated as noise.  
+- [x] Optional pure helper: `list_subject_stems_requiring_hints(&[...])` or table of dogfood stems shared with tests.  
+- [x] Prefer collapsing **local-space children** (translation ~0 parent-relative already collapsed by name where possible) so WatchPostLegs etc. never crowd max_subjects.
 
 ### R0.2 3D multi-view debt (R3)
 
-- [ ] Landscape/water alt: try **side nudge** (XZ offset) when projection is TopDown3d if pure Y-lift still yields `views_similar`.  
-- [ ] Keep `views_similar` warning honest.  
-- [ ] Unit-test pure nudge selection if extracted; otherwise document behavior in skill.
+- [x] Landscape/water alt: try **side nudge** (XZ offset) when projection is TopDown3d if pure Y-lift still yields `views_similar`.  
+- [x] Keep `views_similar` warning honest.  
+- [x] Unit-test pure nudge selection if extracted; otherwise document behavior in skill.
 
 ### R0.3 3D fovea debt (R4)
 
-- [ ] Retune `iron-feud` `visible_half_*` if dogfood fovea still misses tall props (WatchPost ~3u height).  
-- [ ] Optional: taller entities get larger default crop half when name matches tall prefixes (WatchPost, OreSilo, Relay, TerrainPeak).  
-- [ ] Unit tests for any pure crop/half helper.
+- [x] Retune `iron-feud` `visible_half_*` if dogfood fovea still misses tall props (WatchPost ~3u height).  
+- [x] Optional: taller entities get larger default crop half when name matches tall prefixes (WatchPost, OreSilo, Relay, TerrainPeak).  
+- [x] Unit tests for any pure crop/half helper.
 
 ### R0.4 Baseline + surface (R7)
 
-- [ ] Skill + MCP instructions: after asset/env change, `save_baseline` then `compare_baseline` once per game in R3.  
-- [ ] CLI/MCP still expose baseline flags on scene/verify.  
-- [ ] `cargo test -p grok-bevy -p grok-bevy-brp` PASS; `cargo build -p grok-bevy` PASS.  
-- [ ] `cargo install --path crates/grok-bevy --force`; log `grok-bevy see --help` + pack list to `{SCRATCH}/mcp-surface.log`.
+- [x] Skill + MCP instructions: after asset/env change, `save_baseline` then `compare_baseline` once per game in R3.  
+- [x] CLI/MCP still expose baseline flags on scene/verify.  
+- [x] `cargo test -p grok-bevy -p grok-bevy-brp` PASS; `cargo build -p grok-bevy` PASS.  
+- [x] `cargo install --path crates/grok-bevy --force`; log `grok-bevy see --help` + pack list to `{SCRATCH}/mcp-surface.log`.
 
 **R0 exit:** Tests green; binary rebuilt; no excluded features.
 
@@ -153,22 +153,22 @@ Implement in `crates/grok-bevy-brp` / `crates/grok-bevy`. Pure logic unit-tested
 
 ### Existing environment improve checklist
 
-- [ ] `SpaceBackdrop` — keep deep black or subtle gradient; must not defeat black_frame honesty  
-- [ ] `NebulaCloud_*` — larger, higher alpha, spread for env_2d horizon/center packs  
-- [ ] `DerelictStation` — scale/tint/position so full frame reads landmark  
-- [ ] `DebrisRing` — scale/tint; not lost in stars  
-- [ ] Starfield — if present, ensure not subject spam (Stars already demoted)  
-- [ ] Gameplay Named props (BeaconBuoy, RescuePod, CometFragment, SignalSat) — positions for simultaneous on-screen at start where possible  
+- [x] `SpaceBackdrop` — keep deep black or subtle gradient; must not defeat black_frame honesty  
+- [x] `NebulaCloud_*` — larger, higher alpha, spread for env_2d horizon/center packs  
+- [x] `DerelictStation` — scale/tint/position so full frame reads landmark  
+- [x] `DebrisRing` — scale/tint; not lost in stars  
+- [x] Starfield — if present, ensure not subject spam (Stars already demoted)  
+- [x] Gameplay Named props (BeaconBuoy, RescuePod, CometFragment, SignalSat) — positions for simultaneous on-screen at start where possible  
 
 ### Implementation checklist
 
-- [ ] New feature sprite on disk + `GameAssets` + loading + `Name::new` + system  
-- [ ] New env sprite on disk + spawn Named  
-- [ ] All existing sprites replaced/improved and referenced  
-- [ ] Env setup pass applied  
-- [ ] GAMEPLAY_NAME_HINTS stems for new Names (R0)  
-- [ ] Build: `cargo build --features remote,capture` → `{SCRATCH}/crystal-drift-build.log` PASS  
-- [ ] No unreferenced dead assets  
+- [x] New feature sprite on disk + `GameAssets` + loading + `Name::new` + system  
+- [x] New env sprite on disk + spawn Named  
+- [x] All existing sprites replaced/improved and referenced  
+- [x] Env setup pass applied  
+- [x] GAMEPLAY_NAME_HINTS stems for new Names (R0)  
+- [x] Build: `cargo build --features remote,capture` → `{SCRATCH}/crystal-drift-build.log` PASS  
+- [x] No unreferenced dead assets  
 
 ### Eyesight expectations (R3)
 
@@ -214,27 +214,27 @@ Implement in `crates/grok-bevy-brp` / `crates/grok-bevy`. Pure logic unit-tested
 
 ### Existing environment improve checklist
 
-- [ ] `Ground` plane — tint/material; still placement-safe  
-- [ ] `TerrainFlat` / `TerrainHill_*` / `TerrainPeak_*` — scale/position so **three bands read** in landscape full+alt; tops still match/update `height_terrain_samples()` tests  
-- [ ] `WaterBody` — size/edge vs land; emissive/tint for pack water  
-- [ ] `RockOutcrop_A/B` — scale, place on slopes near hills  
-- [ ] `TreeScrub_A/B` — height/canopy contrast  
-- [ ] `CliffRidge_West` — height/depth against peaks  
-- [ ] `AshPlateau` — scale/tint  
-- [ ] `FieldScrap_*` — silhouette vs ground  
-- [ ] Prior props: RelayTower, SupplyCrate, WatchPost, OreSilo — mesh proportions/materials for fovea  
-- [ ] Lighting (Sun / FillLight) — if env washed or too dark, retune illuminance (still not “unlit suite”)  
-- [ ] Document reserved start cells if height/env blocks placement  
+- [x] `Ground` plane — tint/material; still placement-safe  
+- [x] `TerrainFlat` / `TerrainHill_*` / `TerrainPeak_*` — scale/position so **three bands read** in landscape full+alt; tops still match/update `height_terrain_samples()` tests  
+- [x] `WaterBody` — size/edge vs land; emissive/tint for pack water  
+- [x] `RockOutcrop_A/B` — scale, place on slopes near hills  
+- [x] `TreeScrub_A/B` — height/canopy contrast  
+- [x] `CliffRidge_West` — height/depth against peaks  
+- [x] `AshPlateau` — scale/tint  
+- [x] `FieldScrap_*` — silhouette vs ground  
+- [x] Prior props: RelayTower, SupplyCrate, WatchPost, OreSilo — mesh proportions/materials for fovea  
+- [x] Lighting (Sun / FillLight) — if env washed or too dark, retune illuminance (still not “unlit suite”)  
+- [x] Document reserved start cells if height/env blocks placement  
 
 ### Implementation checklist
 
-- [ ] New feature spawn + tint asset + Name  
-- [ ] New env spawn + asset + Name  
-- [ ] All tints replaced; meshes/materials re-checked  
-- [ ] Height bands still distinct (`height_bands_are_distinct` + live landscape)  
-- [ ] `IRON_FEUD_AUTO_PLAY=1` → Playing  
-- [ ] Build log `{SCRATCH}/iron-feud-build.log` PASS  
-- [ ] Hints for new Names in R0  
+- [x] New feature spawn + tint asset + Name  
+- [x] New env spawn + asset + Name  
+- [x] All tints replaced; meshes/materials re-checked  
+- [x] Height bands still distinct (`height_bands_are_distinct` + live landscape)  
+- [x] `IRON_FEUD_AUTO_PLAY=1` → Playing  
+- [x] Build log `{SCRATCH}/iron-feud-build.log` PASS  
+- [x] Hints for new Names in R0  
 
 ### Eyesight expectations (R3)
 
@@ -297,19 +297,19 @@ Sequential on port **15702**.
 
 ### R3.5 Fix loop
 
-- [ ] Fix missing Names, filter score 0, flat-only IF, Menu-only IF, black_frame false positive, unreferenced assets.  
-- [ ] Re-run only failed game.  
-- [ ] Do not declare done with stub improves or missing new quotas.  
+- [x] Fix missing Names, filter score 0, flat-only IF, Menu-only IF, black_frame false positive, unreferenced assets.  
+- [x] Re-run only failed game.  
+- [x] Do not declare done with stub improves or missing new quotas.  
 
 ---
 
 ## 7. Phase R4 — Docs and closeout
 
-- [ ] Flip checkboxes in this file when truly done.  
-- [ ] Update [PROGRESS.md](../PROGRESS.md).  
-- [ ] Write `docs/AGENT_SIGHT_DEBT_FINDINGS_YYYY-MM-DD.md` (features, every asset path touched, packets, height notes, assessments).  
-- [ ] Skill `bevy-agent-loop` / eyesight-packs: debt fixes, Name onboarding rule, dual-port sequential note.  
-- [ ] Link from ROADMAP / AGENTS.  
+- [x] Flip checkboxes in this file when truly done.  
+- [x] Update [PROGRESS.md](../PROGRESS.md).  
+- [x] Write `docs/AGENT_SIGHT_DEBT_FINDINGS_YYYY-MM-DD.md` (features, every asset path touched, packets, height notes, assessments).  
+- [x] Skill `bevy-agent-loop` / eyesight-packs: debt fixes, Name onboarding rule, dual-port sequential note.  
+- [x] Link from ROADMAP / AGENTS.  
 
 ---
 
@@ -377,3 +377,4 @@ Update plan checkboxes + PROGRESS + findings. Taste/design human-owned; agent si
 | Date | Change |
 |------|--------|
 | 2026-07-22 | Initial residual sight debt plan; full CD/IF asset+env improve inventories; one new feature + one new env per game |
+| 2026-07-23 | R0–R4 complete: residual sight helpers; CD SolarFlareBuoy+WarpGateRing; IF RadarDome+TerrainSaddle; full asset improve; findings |

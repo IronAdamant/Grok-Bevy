@@ -11,7 +11,9 @@ Not an editor. Not taste. Schema: `grok-bevy.eyesight/v1` with `acuity: "20/20-c
 5. Rebuild MCP before dogfood pass evidence:  
    `cargo install --path crates/grok-bevy --force`  
 6. Stills + short strips only — **no** livestream / 60 FPS video.  
-7. New Named gameplay entities need GAMEPLAY_NAME_HINTS (or high score) so they survive `gameplay_prefer`.
+7. New Named gameplay entities need GAMEPLAY_NAME_HINTS / DOGFOOD_NAME_STEMS score >0 so they survive `gameplay_prefer` (unit-tested onboarding table).  
+8. After asset/env change: `save_baseline` then `compare_baseline` once.  
+9. Landscape alt uses **side XZ nudge** for top-down 3D; if hashes match, heed `views_similar`.
 
 ## Tools / CLI
 

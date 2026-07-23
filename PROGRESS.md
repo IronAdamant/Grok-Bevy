@@ -215,19 +215,21 @@ Plan: [docs/AGENT_SIGHT_2D3D_PLAN.md](docs/AGENT_SIGHT_2D3D_PLAN.md).
 
 ---
 
-## Agent sight debt — planned
+## Agent sight debt — done
 
 Residual acuity + **full dogfood asset/env pass** (CD + IF): filter/multi-view/fovea debts; each game **1 new feature+asset**, **1 new env**, **improve all existing assets and environments**.
 
-Plan: [docs/AGENT_SIGHT_DEBT_PLAN.md](docs/AGENT_SIGHT_DEBT_PLAN.md).
+Plan: [docs/AGENT_SIGHT_DEBT_PLAN.md](docs/AGENT_SIGHT_DEBT_PLAN.md).  
+Findings: [docs/AGENT_SIGHT_DEBT_FINDINGS_2026-07-23.md](docs/AGENT_SIGHT_DEBT_FINDINGS_2026-07-23.md).
 
 | Phase | Name | Status |
 |-------|------|--------|
-| **R0** | Grok-Bevy residual sight + MCP rebuild | planned |
-| **R1** | Crystal Drift: 1 new + 1 env + improve all assets/env | planned |
-| **R2** | Iron Feud: 1 new + 1 env + improve all assets/env | planned |
-| **R3** | Live review both + fix loop | planned |
-| **R4** | Docs / findings / assessments | planned |
+| **R0** | Grok-Bevy residual sight + MCP rebuild | **done** |
+| **R1** | Crystal Drift: 1 new + 1 env + improve all assets/env | **done** |
+| **R2** | Iron Feud: 1 new + 1 env + improve all assets/env | **done** |
+| **R3** | Live review both + fix loop | **done** |
+| **R4** | Docs / findings / assessments | **done** |
 
 - [x] Plan file landed  
-- [ ] R0–R4 complete
+- [x] R0–R4 complete  
+- [x] Findings: [docs/AGENT_SIGHT_DEBT_FINDINGS_2026-07-23.md](docs/AGENT_SIGHT_DEBT_FINDINGS_2026-07-23.md)

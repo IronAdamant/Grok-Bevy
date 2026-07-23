@@ -39,7 +39,10 @@ Plan: `docs/AGENT_EYESIGHT_PLAN.md` + `docs/AGENT_EYESIGHT_20_20_PLAN.md` + `doc
 11. **Black-frame warning:** empty window — dark space with sprites is not empty.  
 12. **Default one-shot:** `bevy_see_verify` / `grok-bevy see verify --profile crystal-drift|iron-feud` first.  
 13. **3D height:** landscape pack notes height_bands when TerrainFlat/Hill/Peak present; IF dogfood uses multi-band ground.  
-14. **No shortcuts:** rebuild MCP (`cargo install --path crates/grok-bevy --force`) before treating dogfood captures as pass evidence.
+14. **No shortcuts:** rebuild MCP (`cargo install --path crates/grok-bevy --force`) before treating dogfood captures as pass evidence.  
+15. **Name onboarding:** every new dogfood Name must score `gameplay_subject_score > 0` (add stems to `GAMEPLAY_NAME_HINTS` / `DOGFOOD_NAME_STEMS` + unit test).  
+16. **Baseline after visual change:** `save_baseline` then `compare_baseline` once per game when iterating assets/env.  
+17. **Sequential BRP:** one game on port 15702 at a time.
 
 ## Standard loop (hard requirements)
 

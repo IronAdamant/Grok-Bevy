@@ -65,10 +65,45 @@ pub const PRIMARY_PREFIXES: &[&str] = &[
     "TerrainHill",
     "TerrainPeak",
     "HeightTerrain",
+    // R1/R2 debt-plan dogfood
+    "SolarFlareBuoy",
+    "WarpGateRing",
+    "RadarDome",
+    "TerrainSaddle",
 ];
 
 /// Acuity milestone label for 20/20-candidate packets.
 pub const ACUITY_LABEL: &str = "20/20-candidate";
+
+/// Name onboarding rule (R0): every new dogfood Name stem must score
+/// `gameplay_subject_score(name) > 0` so it survives `gameplay_prefer` filter.
+/// Add stems here (and to GAMEPLAY_NAME_HINTS) before dogfood claims green.
+pub const DOGFOOD_NAME_STEMS: &[&str] = &[
+    // Prior dogfood
+    "Player",
+    "BeaconBuoy",
+    "RescuePod",
+    "DebrisRing",
+    "CometFragment",
+    "SignalSat",
+    "WaterBody",
+    "Ground",
+    "StrategyCamera",
+    "WatchPost",
+    "OreSilo",
+    "TerrainFlat",
+    "TerrainHill_N",
+    "TerrainPeak_N",
+    "RelayTower",
+    "SupplyCrate",
+    "AshPlateau",
+    // R1 Crystal Drift debt plan
+    "SolarFlareBuoy",
+    "WarpGateRing",
+    // R2 Iron Feud debt plan
+    "RadarDome",
+    "TerrainSaddle",
+];
 
 /// Gameplay name prefixes / substrings preferred in subject filter (A4).
 pub const GAMEPLAY_NAME_HINTS: &[&str] = &[
@@ -128,6 +163,17 @@ pub const GAMEPLAY_NAME_HINTS: &[&str] = &[
     "Peak",
     "Height",
     "Mountain",
+    // R1/R2 debt plan — SolarFlareBuoy, WarpGateRing, RadarDome, TerrainSaddle
+    "Solar",
+    "Flare",
+    "Warp",
+    "Gate",
+    "Ring",
+    "Radar",
+    "Dome",
+    "Saddle",
+    "Mist",
+    "Basin",
 ];
 
 /// Role of a capture within an eyesight packet.
@@ -797,6 +843,9 @@ fn is_child_mesh_part(name: &str) -> bool {
         || name.ends_with("Canopy")
         || name.ends_with("Rotor")
         || name.ends_with("Turbine")
+        || name.ends_with("Shell")
+        || name.ends_with("Base")
+        || name.ends_with("Dish")
         // "…Body" / "…Cap" only when compound (e.g. OreSiloBody), not WaterBody alone
         || (name.ends_with("Body") && name != "WaterBody" && name.len() > "Body".len())
         || (name.ends_with("Cap") && name != "Cap" && name.contains("Silo")
@@ -963,6 +1012,71 @@ pub fn is_known_pack(pack: &str) -> bool {
         || p == "physics"
 }
 
+/// Stems that must score >0 (Name onboarding). Used by unit tests + skill docs.
+pub fn dogfood_stems_needing_positive_score() -> &'static [&'static str] {
+    DOGFOOD_NAME_STEMS
+}
+
+/// True when every dogfood stem scores >0 under the shipped scorer.
+pub fn all_dogfood_stems_score_positive() -> bool {
+    DOGFOOD_NAME_STEMS
+        .iter()
+        .all(|s| gameplay_subject_score(s) > 0)
+}
+
+/// Pure helper: camera translation nudge for landscape/water alt views (R0 / R3 debt).
+/// Top-down 3D uses **side XZ offset + lift** so alt differs from game more often than pure Y-lift.
+/// Returns (x, y, z) absolute translation.
+pub fn alt_camera_nudge_translation(
+    cam: [f64; 3],
+    topdown3d: bool,
+) -> [f64; 3] {
+    if topdown3d {
+        // Side/orbit-ish: large X offset + moderate Y lift + Z offset (height relief + lateral shift)
+        [
+            cam[0] + 14.0,
+            (cam[1] + 22.0).max(28.0),
+            cam[2] + 12.0,
+        ]
+    } else {
+        // 2D ortho: pan + slight lift in world units
+        [cam[0] + 220.0, cam[1] + 100.0, cam[2]]
+    }
+}
+
+/// Tall prop / peak Names get a larger fovea half (R0 / R4 debt).
+pub const TALL_ENTITY_PREFIXES: &[&str] = &[
+    "WatchPost",
+    "OreSilo",
+    "Relay",
+    "TerrainPeak",
+    "RadarDome",
+    "TerrainSaddle",
+    "CliffRidge",
+    "WarpGate",
+];
+
+/// Default crop half for entity fovea; larger for tall silhouettes.
+pub fn crop_half_for_entity(entity_name: &str, requested_half: u32) -> u32 {
+    let base = if requested_half == 0 {
+        DEFAULT_CROP_HALF
+    } else {
+        requested_half
+    };
+    // Only inflate when caller used default-ish half (≤ DEFAULT_CROP_HALF)
+    if base > DEFAULT_CROP_HALF {
+        return base;
+    }
+    if TALL_ENTITY_PREFIXES
+        .iter()
+        .any(|p| entity_name.starts_with(p) || entity_name.contains(p))
+    {
+        base.saturating_mul(3).saturating_div(2).max(base + 32) // ~1.5×, min +32
+    } else {
+        base
+    }
+}
+
 /// Apply named game profile defaults into SeeOptions (S0.3). Explicit non-empty waits already set are kept if non-empty.
 pub fn apply_game_profile(opts: &mut SeeOptions, profile: &str) {
     match profile.to_ascii_lowercase().as_str() {
@@ -983,9 +1097,9 @@ pub fn apply_game_profile(opts: &mut SeeOptions, profile: &str) {
         }
         "iron-feud" | "iron_feud" | "if" | "topdown3d" | "topdown" | "3d" => {
             opts.projection = ProjectionMode::TopDown3d;
-            // Strategy camera world half-extent (XZ) for IF factory scale.
-            opts.visible_half_w = 20.0;
-            opts.visible_half_h = 20.0;
+            // Slightly wider half-extents so tall props (WatchPost ~3u) stay in fovea projection (R0.3).
+            opts.visible_half_w = 22.0;
+            opts.visible_half_h = 22.0;
             opts.require_playing = true;
             if opts.wait_for_subjects.is_empty() {
                 opts.wait_for_subjects = vec![
@@ -1632,6 +1746,7 @@ pub fn see_entity(
     screen_y: Option<u32>,
     half: u32,
 ) -> Result<EyesightPacket> {
+    let half = crop_half_for_entity(entity_name, half);
     let full_path = eyesight_path(&opts.out_dir, "entity_full.png");
     let img = capture_viewport_image(client, &full_path)?;
     let full = CaptureEntry::from_path(CaptureRole::Full, &img.path)?;
@@ -2142,7 +2257,7 @@ pub fn see_pack(
 
             let subjects = query_all_subjects(client);
             let game_hash = file_content_hash(&img.path).ok();
-            // Prefer larger nudge for 3D so alt ≠ game when possible
+            // R0: side XZ nudge for top-down 3D (pure Y-lift often views_similar)
             if let Some(cam_s) = subjects.iter().find(|s| {
                 s.name == "StrategyCamera"
                     || s.name == "MainCamera"
@@ -2151,18 +2266,12 @@ pub fn see_pack(
                 if let (Some(entity), Some(t)) = (cam_s.entity, cam_s.translation) {
                     let component = "bevy_transform::components::transform::Transform";
                     let restore = json!({ "x": t[0], "y": t[1], "z": t[2] });
-                    let nudged = if matches!(opts.projection, ProjectionMode::TopDown3d)
-                        || cam_s.name.contains("Strategy")
-                    {
-                        // Larger vertical lift so height relief is readable in alt view
-                        json!({ "x": t[0], "y": (t[1] + 28.0).max(30.0), "z": t[2] + 8.0 })
-                    } else {
-                        json!({ "x": t[0] + 220.0, "y": t[1] + 100.0, "z": t[2] })
-                    };
-                    let role = if matches!(opts.projection, ProjectionMode::TopDown3d)
-                        || cam_s.name.contains("Strategy")
-                    {
-                        CaptureRole::Top
+                    let topdown = matches!(opts.projection, ProjectionMode::TopDown3d)
+                        || cam_s.name.contains("Strategy");
+                    let n = alt_camera_nudge_translation([t[0], t[1], t[2]], topdown);
+                    let nudged = json!({ "x": n[0], "y": n[1], "z": n[2] });
+                    let role = if topdown {
+                        CaptureRole::Side
                     } else {
                         CaptureRole::Side
                     };
@@ -2172,7 +2281,9 @@ pub fn see_pack(
                         &opts,
                         role,
                         &fname,
-                        &format!("{pack} view=alt (camera nudge)"),
+                        &format!(
+                            "{pack} view=alt (camera nudge side-xz topdown={topdown})"
+                        ),
                         entity,
                         component,
                         nudged,
@@ -2480,8 +2591,73 @@ mod tests {
         assert!(o.require_playing);
         assert!(matches!(o.projection, ProjectionMode::TopDown3d));
         assert!(o.wait_for_subjects.iter().any(|s| s == "WaterBody"));
-        assert_eq!(o.visible_half_w, 20.0);
-        assert_eq!(o.visible_half_h, 20.0);
+        assert_eq!(o.visible_half_w, 22.0);
+        assert_eq!(o.visible_half_h, 22.0);
+    }
+
+    #[test]
+    fn dogfood_stems_all_score_positive_including_r1_r2() {
+        assert!(
+            all_dogfood_stems_score_positive(),
+            "every DOGFOOD_NAME_STEMS entry must score >0"
+        );
+        for name in [
+            "SolarFlareBuoy",
+            "WarpGateRing",
+            "RadarDome",
+            "TerrainSaddle",
+        ] {
+            assert!(
+                gameplay_subject_score(name) > 0,
+                "{name} score={}",
+                gameplay_subject_score(name)
+            );
+        }
+        // Survive filter with OreCrystal spam
+        let mut subs: Vec<_> = [
+            "SolarFlareBuoy",
+            "WarpGateRing",
+            "RadarDome",
+            "TerrainSaddle",
+            "WaterBody",
+            "Player",
+        ]
+        .iter()
+        .map(|n| sub(n))
+        .collect();
+        for i in 0..16 {
+            subs.push(sub(&format!("OreCrystal{i}")));
+        }
+        let (out, _) = filter_subjects(subs, SubjectFilterMode::GameplayPrefer, 24);
+        assert!(out.iter().any(|s| s.name == "SolarFlareBuoy"));
+        assert!(out.iter().any(|s| s.name == "WarpGateRing"));
+        assert!(out.iter().any(|s| s.name == "RadarDome"));
+        assert!(out.iter().any(|s| s.name == "TerrainSaddle"));
+        assert!(out.iter().any(|s| s.name == "WaterBody"));
+        assert!(!out.iter().any(|s| s.name.starts_with("OreCrystal")));
+    }
+
+    #[test]
+    fn alt_camera_nudge_topdown_uses_side_xz() {
+        let cam = [3.0, 28.0, 10.0];
+        let n = alt_camera_nudge_translation(cam, true);
+        assert!(n[0] > cam[0], "side X offset");
+        assert!(n[2] > cam[2], "side Z offset");
+        assert!(n[1] >= 28.0, "Y lift retained");
+        let n2 = alt_camera_nudge_translation([0.0, 0.0, 0.0], false);
+        assert!((n2[0] - 220.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn crop_half_inflates_tall_entities() {
+        let def = DEFAULT_CROP_HALF;
+        assert_eq!(crop_half_for_entity("Player", def), def);
+        let tall = crop_half_for_entity("WatchPost", def);
+        assert!(tall > def, "WatchPost half {tall} > {def}");
+        assert!(crop_half_for_entity("RadarDome", def) > def);
+        assert!(crop_half_for_entity("TerrainPeak_N", def) > def);
+        // Explicit large half not reduced
+        assert_eq!(crop_half_for_entity("WatchPost", 200), 200);
     }
 
     #[test]
