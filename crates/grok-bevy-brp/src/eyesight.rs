@@ -2134,7 +2134,28 @@ pub fn see_motion(
     Ok(packet)
 }
 
+/// Normalize translation JSON to Bevy 0.19 BRP form: sequence of 3 f32 `[x,y,z]`.
+/// Accepts `{x,y,z}` maps (historical) or arrays.
+pub fn translation_value_for_brp(v: &Value) -> Value {
+    if let Some(arr) = v.as_array() {
+        if arr.len() >= 3 {
+            return json!([
+                arr[0].as_f64().unwrap_or(0.0),
+                arr[1].as_f64().unwrap_or(0.0),
+                arr[2].as_f64().unwrap_or(0.0)
+            ]);
+        }
+    }
+    if let Some(x) = v.get("x").and_then(|n| n.as_f64()) {
+        let y = v.get("y").and_then(|n| n.as_f64()).unwrap_or(0.0);
+        let z = v.get("z").and_then(|n| n.as_f64()).unwrap_or(0.0);
+        return json!([x, y, z]);
+    }
+    v.clone()
+}
+
 /// Best-effort multi-view by mutating a camera Transform (A2). Restores after.
+/// Returns capture plus optional mutate warning (errors no longer silently swallowed).
 fn capture_with_camera_nudge(
     client: &BrpClient,
     opts: &SeeOptions,
@@ -2145,14 +2166,55 @@ fn capture_with_camera_nudge(
     component: &str,
     new_translation: Value,
     restore: Value,
-) -> Result<CaptureEntry> {
-    let _ = client.mutate_components(entity, component, "translation", new_translation);
-    thread::sleep(Duration::from_millis(80));
+) -> Result<(CaptureEntry, Option<String>)> {
+    let mut warn: Option<String> = None;
+    let new_t = translation_value_for_brp(&new_translation);
+    let restore_t = translation_value_for_brp(&restore);
+    // Bevy 0.19 remote expects FQN + translation as [x,y,z] sequence (not {x,y,z} map).
+    let components = [
+        component,
+        "bevy_transform::components::transform::Transform",
+        "Transform",
+    ];
+    let mut mutated = false;
+    let mut last_err = String::new();
+    for c in components {
+        match client.mutate_components(entity, c, "translation", new_t.clone()) {
+            Ok(_) => {
+                mutated = true;
+                break;
+            }
+            Err(e) => {
+                last_err = format!("{c}: {e}");
+            }
+        }
+    }
+    if !mutated {
+        warn = Some(format!(
+            "camera_nudge_mutate_failed entity={entity}: {last_err}"
+        ));
+    }
+    // Allow Transform → GlobalTransform propagation + render
+    thread::sleep(Duration::from_millis(if mutated { 180 } else { 40 }));
     let path = eyesight_path(&opts.out_dir, filename);
     let img = capture_viewport_image(client, &path)?;
-    let _ = client.mutate_components(entity, component, "translation", restore);
-    thread::sleep(Duration::from_millis(40));
-    CaptureEntry::from_path(role, &img.path).map(|e| e.with_note(note.to_string()))
+    for c in components {
+        if client
+            .mutate_components(entity, c, "translation", restore_t.clone())
+            .is_ok()
+        {
+            break;
+        }
+    }
+    thread::sleep(Duration::from_millis(50));
+    let mut note = note.to_string();
+    if !mutated {
+        note.push_str(" [mutate_failed]");
+    } else {
+        note.push_str(" [mutated]");
+    }
+    let entry = CaptureEntry::from_path(role, &img.path)?.with_note(note);
+    Ok((entry, warn))
 }
 
 /// E3: capture after using an existing baseline path; optional diff image.
@@ -2374,7 +2436,7 @@ pub fn see_pack(
                     let nudged = json!({ "x": n[0], "y": n[1], "z": n[2] });
                     let role = CaptureRole::Side;
                     let fname = format!("pack_{}_view_alt.png", pack);
-                    if let Ok(entry) = capture_with_camera_nudge(
+                    if let Ok((entry, mut_warn)) = capture_with_camera_nudge(
                         client,
                         &opts,
                         role,
@@ -2387,6 +2449,9 @@ pub fn see_pack(
                         nudged,
                         restore.clone(),
                     ) {
+                        if let Some(w) = mut_warn {
+                            packet.push_warning(w);
+                        }
                         let similar = captures_look_similar(&img.path, Path::new(&entry.abs_path))
                             .unwrap_or(false);
                         packet.captures.push(entry);
@@ -2396,7 +2461,7 @@ pub fn see_pack(
                             let o = side_orbit_camera_translation([t[0], t[1], t[2]], topdown);
                             let orbit = json!({ "x": o[0], "y": o[1], "z": o[2] });
                             let fname2 = format!("pack_{}_view_side.png", pack);
-                            if let Ok(entry2) = capture_with_camera_nudge(
+                            if let Ok((entry2, mut_warn2)) = capture_with_camera_nudge(
                                 client,
                                 &opts,
                                 CaptureRole::Side,
@@ -2409,6 +2474,9 @@ pub fn see_pack(
                                 orbit,
                                 restore,
                             ) {
+                                if let Some(w) = mut_warn2 {
+                                    packet.push_warning(w);
+                                }
                                 if captures_look_similar(&img.path, Path::new(&entry2.abs_path))
                                     .unwrap_or(false)
                                 {
@@ -2815,6 +2883,18 @@ mod tests {
         let b = side_orbit_camera_translation(cam, true);
         assert!((a[0] - b[0]).abs() > 5.0 || (a[2] - b[2]).abs() > 5.0);
         assert!(b[1] < a[1] || b[2] != a[2]);
+    }
+
+    #[test]
+    fn translation_value_for_brp_is_f32_sequence() {
+        let map = json!({ "x": 1.5, "y": 2.0, "z": 3.25 });
+        let v = translation_value_for_brp(&map);
+        let arr = v.as_array().expect("array");
+        assert_eq!(arr.len(), 3);
+        assert!((arr[0].as_f64().unwrap() - 1.5).abs() < 1e-9);
+        let already = json!([9.0, 8.0, 7.0]);
+        let v2 = translation_value_for_brp(&already);
+        assert_eq!(v2.as_array().unwrap().len(), 3);
     }
 
     #[test]

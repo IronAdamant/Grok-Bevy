@@ -46,3 +46,13 @@
 
 - Strategy multi-view still weak at high Y; dedicated camera entity optional later.  
 - Not every MachineKind re-sculpted equally — drills/belts prioritized; others already multi-part from prior work.
+
+
+## H5 skeptic fixes (same day)
+
+| Issue | Fix |
+|-------|-----|
+| Heightfield faces -Y (black void) | Restore upward winding `[i0,i2,i1,…]` + unit test `upward_winding_has_positive_y_normal` |
+| Landscape identical multi-view | BRP mutate needs `[x,y,z]` sequence not `{x,y,z}`; `translation_value_for_brp` + surface mutate failures |
+| Slab-dominated terrain | Named hill/peak samples shrunk to small landmarks; continuous heightfield is primary Ground |
+| Post-fix evidence | Fresh `{SCRATCH}/eyesight/if/` after winding+mutate fixes; landscape game≠alt; nonblack≈0.92 |
