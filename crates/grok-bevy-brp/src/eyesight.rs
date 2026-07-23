@@ -1025,23 +1025,43 @@ pub fn all_dogfood_stems_score_positive() -> bool {
 }
 
 /// Pure helper: camera translation nudge for landscape/water alt views (R0 / R3 debt).
-/// Top-down 3D uses **side XZ offset + lift** so alt differs from game more often than pure Y-lift.
+/// Top-down 3D uses **large side XZ offset + lift** so alt differs from game more often than pure Y-lift.
 /// Returns (x, y, z) absolute translation.
 pub fn alt_camera_nudge_translation(
     cam: [f64; 3],
     topdown3d: bool,
 ) -> [f64; 3] {
     if topdown3d {
-        // Side/orbit-ish: large X offset + moderate Y lift + Z offset (height relief + lateral shift)
+        // Aggressive side/orbit so mean_abs_diff is clearly non-trivial for height maps
         [
-            cam[0] + 14.0,
-            (cam[1] + 22.0).max(28.0),
-            cam[2] + 12.0,
+            cam[0] + 22.0,
+            (cam[1] + 32.0).max(36.0),
+            cam[2] + 18.0,
         ]
     } else {
         // 2D ortho: pan + slight lift in world units
         [cam[0] + 220.0, cam[1] + 100.0, cam[2]]
     }
+}
+
+/// Threshold for perceptual multi-view similarity (mean abs channel delta 0..1).
+/// Below this, alt ≈ game — warn `views_similar` even when file hashes differ slightly.
+pub const VIEWS_SIMILAR_MEAN_ABS_MAX: f32 = 0.02;
+
+/// True when two PNGs are perceptually nearly identical (exact hash OR mean abs < threshold).
+pub fn captures_look_similar(path_a: &Path, path_b: &Path) -> Result<bool> {
+    if file_content_hash(path_a)? == file_content_hash(path_b)? {
+        return Ok(true);
+    }
+    let a = RgbaImage::decode_png(&fs::read(path_a)?)?;
+    let b_raw = RgbaImage::decode_png(&fs::read(path_b)?)?;
+    let b = if b_raw.width != a.width || b_raw.height != a.height {
+        scale_nearest(&b_raw, a.width, a.height)?
+    } else {
+        b_raw
+    };
+    let score = mean_abs_diff(&a, &b)?;
+    Ok(score < VIEWS_SIMILAR_MEAN_ABS_MAX)
 }
 
 /// Tall prop / peak Names get a larger fovea half (R0 / R4 debt).
@@ -2256,7 +2276,6 @@ pub fn see_pack(
             );
 
             let subjects = query_all_subjects(client);
-            let game_hash = file_content_hash(&img.path).ok();
             // R0: side XZ nudge for top-down 3D (pure Y-lift often views_similar)
             if let Some(cam_s) = subjects.iter().find(|s| {
                 s.name == "StrategyCamera"
@@ -2270,11 +2289,7 @@ pub fn see_pack(
                         || cam_s.name.contains("Strategy");
                     let n = alt_camera_nudge_translation([t[0], t[1], t[2]], topdown);
                     let nudged = json!({ "x": n[0], "y": n[1], "z": n[2] });
-                    let role = if topdown {
-                        CaptureRole::Side
-                    } else {
-                        CaptureRole::Side
-                    };
+                    let role = CaptureRole::Side;
                     let fname = format!("pack_{}_view_alt.png", pack);
                     if let Ok(entry) = capture_with_camera_nudge(
                         client,
@@ -2289,12 +2304,13 @@ pub fn see_pack(
                         nudged,
                         restore,
                     ) {
-                        if let (Some(gh), Ok(ah)) = (game_hash, file_content_hash(Path::new(&entry.abs_path))) {
-                            if gh == ah {
-                                packet.push_warning(
-                                    "views_similar: alt view hash matches game — do not claim multi-angle insight",
-                                );
-                            }
+                        // Perceptual similarity: exact hash OR mean abs < threshold
+                        if captures_look_similar(&img.path, Path::new(&entry.abs_path))
+                            .unwrap_or(false)
+                        {
+                            packet.push_warning(
+                                "views_similar: alt view nearly matches game (hash or mean_abs < 0.02) — do not claim multi-angle insight",
+                            );
                         }
                         packet.captures.push(entry);
                         views.push("alt".into());
@@ -2646,6 +2662,29 @@ mod tests {
         assert!(n[1] >= 28.0, "Y lift retained");
         let n2 = alt_camera_nudge_translation([0.0, 0.0, 0.0], false);
         assert!((n2[0] - 220.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn captures_look_similar_detects_near_identical_pngs() {
+        let dir = tempfile::tempdir().unwrap();
+        let a = dir.path().join("a.png");
+        let b = dir.path().join("b.png");
+        let c = dir.path().join("c.png");
+        fs::write(&a, solid_png(32, 32, [40, 80, 120, 255])).unwrap();
+        fs::write(&b, solid_png(32, 32, [40, 80, 120, 255])).unwrap();
+        fs::write(&c, solid_png(32, 32, [200, 20, 20, 255])).unwrap();
+        assert!(captures_look_similar(&a, &b).unwrap());
+        assert!(!captures_look_similar(&a, &c).unwrap());
+        // Near-identical: one pixel differ still under threshold for 32x32
+        let near = solid_png(32, 32, [40, 80, 120, 255]);
+        // decode, flip one pixel, re-encode via RgbaImage
+        let mut img = RgbaImage::decode_png(&near).unwrap();
+        img.pixels[0] = 41;
+        img.save_png(&dir.path().join("near.png")).unwrap();
+        assert!(
+            captures_look_similar(&a, &dir.path().join("near.png")).unwrap(),
+            "tiny channel delta must still be views_similar"
+        );
     }
 
     #[test]

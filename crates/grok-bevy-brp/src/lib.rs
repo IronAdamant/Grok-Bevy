@@ -9,18 +9,19 @@ pub mod eyesight;
 
 pub use eyesight::{
     all_dogfood_stems_score_positive, alt_camera_nudge_translation, annotate_subjects_projection,
-    apply_game_profile, collapse_duplicate_names, crop_half_for_entity, crop_png_around,
-    crop_png_file, crop_rgba, diagnostic_primary_name, dogfood_stems_needing_positive_score,
-    draw_rect_outline, eyesight_path, file_content_hash, filter_subjects, gameplay_subject_score,
-    height_band_subjects, height_readability_note, infer_app_state_from_subjects, is_known_pack,
-    is_mostly_black_png, mean_abs_diff, montage_horizontal, packet_to_mcp_content,
-    query_all_subjects, rank_primary_subject, region_preset_rect, see_diff, see_entity, see_motion,
-    see_pack, see_region, see_scene, see_verify, subjects_from_query, subjects_look_menu_only,
-    wait_for_subject_names, world_to_screen_ortho, write_diff_png, CaptureEntry, CaptureRole,
-    EyesightPacket, EyesightSubject, ProjectionMode, RegionPreset, RgbaImage, SeeOptions,
-    StimulusInfo, SubjectFilterMode, ACUITY_LABEL, DEFAULT_CROP_HALF, DEFAULT_MAX_SUBJECTS,
-    DEFAULT_MOTION_FRAMES, DEFAULT_MOTION_INTERVAL_MS, DOGFOOD_NAME_STEMS, EYESIGHT_SCHEMA,
-    GAMEPLAY_NAME_HINTS, HEIGHT_BAND_NAME_HINTS, KNOWN_PACKS, TALL_ENTITY_PREFIXES,
+    apply_game_profile, captures_look_similar, collapse_duplicate_names, crop_half_for_entity,
+    crop_png_around, crop_png_file, crop_rgba, diagnostic_primary_name,
+    dogfood_stems_needing_positive_score, draw_rect_outline, eyesight_path, file_content_hash,
+    filter_subjects, gameplay_subject_score, height_band_subjects, height_readability_note,
+    infer_app_state_from_subjects, is_known_pack, is_mostly_black_png, mean_abs_diff,
+    montage_horizontal, packet_to_mcp_content, query_all_subjects, rank_primary_subject,
+    region_preset_rect, see_diff, see_entity, see_motion, see_pack, see_region, see_scene,
+    see_verify, subjects_from_query, subjects_look_menu_only, wait_for_subject_names,
+    world_to_screen_ortho, write_diff_png, CaptureEntry, CaptureRole, EyesightPacket,
+    EyesightSubject, ProjectionMode, RegionPreset, RgbaImage, SeeOptions, StimulusInfo,
+    SubjectFilterMode, ACUITY_LABEL, DEFAULT_CROP_HALF, DEFAULT_MAX_SUBJECTS, DEFAULT_MOTION_FRAMES,
+    DEFAULT_MOTION_INTERVAL_MS, DOGFOOD_NAME_STEMS, EYESIGHT_SCHEMA, GAMEPLAY_NAME_HINTS,
+    HEIGHT_BAND_NAME_HINTS, KNOWN_PACKS, TALL_ENTITY_PREFIXES, VIEWS_SIMILAR_MEAN_ABS_MAX,
 };
 
 use anyhow::{anyhow, Context, Result};

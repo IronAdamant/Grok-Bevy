@@ -58,16 +58,15 @@ Scratch: `{SCRATCH}/dogfood-see-2d.log`, `dogfood-see-3d.log`, `eyesight/cd|if/`
 ## Assessments
 
 1. **DOGFOOD_NAME_STEMS table + unit test** makes Name onboarding enforceable, not folklore.  
-2. **Side XZ nudge** is the right default for strategy-camera multi-view; `views_similar` stays honest.  
-3. **Full inventory asset replace** is the only way to kill 100-byte placeholder sprites/tints.  
-4. **Magenta keying** on generated 2D art still needs aggressive post-process; residual pink plates may appear if key thresholds miss — re-key pass applied on CD pickups.  
+2. **Side XZ nudge** alone is not enough for strategy-camera multi-view honesty — **perceptual `views_similar`** (`captures_look_similar`: hash **or** mean abs &lt; 0.02) is required; live IF landscape now warns correctly (mean_abs ~1.7e-5).  
+3. **Full inventory asset replace** must use **opaque craft on transparent BG** (no magenta plates). Imagine+key failed dogfood; clean PIL silhouettes + in-frame env positions fixed full-frame readability (CD scene_full ~1.3MB, 81% non-black, WarpGate/station/nebulas painted).  
+4. **Env must be inside ortho frame** — far-off landmarks Named/on_screen via projection but still black in pixels if outside practical composition.  
 5. **TerrainSaddle as height sample** ties new env to band unit tests without breaking start placement.  
 6. Taste remains human-owned.
 
 ### Residual gaps
 
-- Some CD sprites may still show keying artifacts under extreme lighting; re-export with cleaner keys if needed.  
-- 3D alt vs game can still be partially similar depending on camera.  
+- 3D landscape alt remains nearly identical at high strategy height even with large XZ nudge — warning is honest; true multi-angle needs a dedicated side camera later.  
 - Dual BRP still sequential on 15702 (documented only).
 
 ## Tests / rebuild
