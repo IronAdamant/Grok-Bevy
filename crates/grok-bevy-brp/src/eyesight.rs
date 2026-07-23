@@ -103,6 +103,11 @@ pub const DOGFOOD_NAME_STEMS: &[&str] = &[
     // R2 Iron Feud debt plan
     "RadarDome",
     "TerrainSaddle",
+    // H2/H3 hardening craft dogfood
+    "PulseMine",
+    "MineDrone",
+    "LoadingBay",
+    "PipeJunction",
 ];
 
 /// Gameplay name prefixes / substrings preferred in subject filter (A4).
@@ -174,6 +179,10 @@ pub const GAMEPLAY_NAME_HINTS: &[&str] = &[
     "Saddle",
     "Mist",
     "Basin",
+    // H2/H3 hardening
+    "Pulse",
+    "Loading",
+    "Bay",
 ];
 
 /// Role of a capture within an eyesight packet.
@@ -846,6 +855,10 @@ fn is_child_mesh_part(name: &str) -> bool {
         || name.ends_with("Shell")
         || name.ends_with("Base")
         || name.ends_with("Dish")
+        || name.starts_with("LoadingBayPost")
+        || name.starts_with("LoadingBay") && name != "LoadingBay"
+        || name.starts_with("Drill") && name != "Drill" && !name.contains("Tower")
+        || name.starts_with("Belt")
         // "…Body" / "…Cap" only when compound (e.g. OreSiloBody), not WaterBody alone
         || (name.ends_with("Body") && name != "WaterBody" && name.len() > "Body".len())
         || (name.ends_with("Cap") && name != "Cap" && name.contains("Silo")
@@ -1048,6 +1061,62 @@ pub fn alt_camera_nudge_translation(
 /// Below this, alt ≈ game — warn `views_similar` even when file hashes differ slightly.
 pub const VIEWS_SIMILAR_MEAN_ABS_MAX: f32 = 0.02;
 
+/// Minimum non-black fraction for a "readable" full-frame Playing capture (CD env).
+pub const FULL_FRAME_NONBLACK_MIN: f32 = 0.08;
+
+/// True-magenta plate gate: sprites must have zero such pixels.
+/// Strict: R>200, B>200, G<40 (excludes purple craft with moderate G).
+pub const TRUE_MAGENTA_MAX_ON_SPRITE: u32 = 0;
+
+/// Fraction of pixels that are not near-black (luma > threshold).
+/// Drives full-frame env readability gates (Names ≠ pixels).
+pub fn png_nonblack_fraction(png_bytes: &[u8], luma_min: u8) -> Result<f32> {
+    let img = RgbaImage::decode_png(png_bytes)?;
+    let n = (img.width as usize).saturating_mul(img.height as usize);
+    if n == 0 {
+        return Ok(0.0);
+    }
+    let mut bright = 0usize;
+    for i in (0..img.pixels.len()).step_by(4) {
+        let r = img.pixels[i] as u32;
+        let g = img.pixels[i + 1] as u32;
+        let b = img.pixels[i + 2] as u32;
+        // Rec.601-ish luma
+        let luma = (54 * r + 183 * g + 19 * b) / 256;
+        if luma > luma_min as u32 {
+            bright += 1;
+        }
+    }
+    Ok(bright as f32 / n as f32)
+}
+
+/// Count opaque true-magenta plate pixels (keying failures / purple squares).
+/// Strict: R>200, G<40, B>200, A>200 — not soft purple craft.
+pub fn png_true_magenta_pixel_count(png_bytes: &[u8]) -> Result<u32> {
+    let img = RgbaImage::decode_png(png_bytes)?;
+    let mut n = 0u32;
+    for i in (0..img.pixels.len()).step_by(4) {
+        let r = img.pixels[i];
+        let g = img.pixels[i + 1];
+        let b = img.pixels[i + 2];
+        let a = img.pixels[i + 3];
+        if a > 200 && r > 200 && g < 40 && b > 200 {
+            n = n.saturating_add(1);
+        }
+    }
+    Ok(n)
+}
+
+/// Path convenience for sprite inventory audit.
+pub fn path_true_magenta_pixel_count(path: &Path) -> Result<u32> {
+    png_true_magenta_pixel_count(&fs::read(path)?)
+}
+
+/// Path convenience for full-frame nonblack gate.
+pub fn path_nonblack_fraction(path: &Path, luma_min: u8) -> Result<f32> {
+    png_nonblack_fraction(&fs::read(path)?, luma_min)
+}
+
 /// True when two PNGs are perceptually nearly identical (exact hash OR mean abs < threshold).
 pub fn captures_look_similar(path_a: &Path, path_b: &Path) -> Result<bool> {
     if file_content_hash(path_a)? == file_content_hash(path_b)? {
@@ -1062,6 +1131,20 @@ pub fn captures_look_similar(path_a: &Path, path_b: &Path) -> Result<bool> {
     };
     let score = mean_abs_diff(&a, &b)?;
     Ok(score < VIEWS_SIMILAR_MEAN_ABS_MAX)
+}
+
+/// Pure helper: aggressive **side/orbit** camera translation when first alt is still similar.
+/// Places camera well off-axis so height maps should differ under top-down strategy views.
+pub fn side_orbit_camera_translation(cam: [f64; 3], topdown3d: bool) -> [f64; 3] {
+    if topdown3d {
+        [
+            cam[0] - 28.0,
+            (cam[1] + 8.0).max(18.0), // lower Y for more lateral parallax
+            cam[2] + 26.0,
+        ]
+    } else {
+        [cam[0] - 320.0, cam[1] + 40.0, cam[2]]
+    }
 }
 
 /// Tall prop / peak Names get a larger fovea half (R0 / R4 debt).
@@ -2276,7 +2359,7 @@ pub fn see_pack(
             );
 
             let subjects = query_all_subjects(client);
-            // R0: side XZ nudge for top-down 3D (pure Y-lift often views_similar)
+            // H0: first alt nudge; if still similar, second **side-orbit** capture path
             if let Some(cam_s) = subjects.iter().find(|s| {
                 s.name == "StrategyCamera"
                     || s.name == "MainCamera"
@@ -2302,18 +2385,49 @@ pub fn see_pack(
                         entity,
                         component,
                         nudged,
-                        restore,
+                        restore.clone(),
                     ) {
-                        // Perceptual similarity: exact hash OR mean abs < threshold
-                        if captures_look_similar(&img.path, Path::new(&entry.abs_path))
-                            .unwrap_or(false)
-                        {
-                            packet.push_warning(
-                                "views_similar: alt view nearly matches game (hash or mean_abs < 0.02) — do not claim multi-angle insight",
-                            );
-                        }
+                        let similar = captures_look_similar(&img.path, Path::new(&entry.abs_path))
+                            .unwrap_or(false);
                         packet.captures.push(entry);
                         views.push("alt".into());
+                        if similar {
+                            // Second path: aggressive side-orbit (H0 true multi-view attempt)
+                            let o = side_orbit_camera_translation([t[0], t[1], t[2]], topdown);
+                            let orbit = json!({ "x": o[0], "y": o[1], "z": o[2] });
+                            let fname2 = format!("pack_{}_view_side.png", pack);
+                            if let Ok(entry2) = capture_with_camera_nudge(
+                                client,
+                                &opts,
+                                CaptureRole::Side,
+                                &fname2,
+                                &format!(
+                                    "{pack} view=side-orbit (second path after views_similar)"
+                                ),
+                                entity,
+                                component,
+                                orbit,
+                                restore,
+                            ) {
+                                if captures_look_similar(&img.path, Path::new(&entry2.abs_path))
+                                    .unwrap_or(false)
+                                {
+                                    packet.push_warning(
+                                        "views_similar: alt and side-orbit still nearly match game — do not claim multi-angle insight",
+                                    );
+                                } else {
+                                    packet.push_warning(
+                                        "multi_view: side-orbit differs from game after first alt was similar",
+                                    );
+                                }
+                                packet.captures.push(entry2);
+                                views.push("side_orbit".into());
+                            } else {
+                                packet.push_warning(
+                                    "views_similar: alt view nearly matches game — side-orbit capture failed; do not claim multi-angle insight",
+                                );
+                            }
+                        }
                     }
                 }
             } else {
@@ -2662,6 +2776,58 @@ mod tests {
         assert!(n[1] >= 28.0, "Y lift retained");
         let n2 = alt_camera_nudge_translation([0.0, 0.0, 0.0], false);
         assert!((n2[0] - 220.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn png_nonblack_and_true_magenta_gates() {
+        let black = solid_png(16, 16, [0, 0, 0, 255]);
+        let frac = png_nonblack_fraction(&black, 30).unwrap();
+        assert!(frac < 0.05, "black frame nonblack={frac}");
+        let bright = solid_png(16, 16, [200, 180, 160, 255]);
+        let frac_b = png_nonblack_fraction(&bright, 30).unwrap();
+        assert!(frac_b > 0.9, "bright frame nonblack={frac_b}");
+        let magenta = solid_png(8, 8, [255, 0, 255, 255]);
+        assert!(png_true_magenta_pixel_count(&magenta).unwrap() > 0);
+        // Clean craft: cyan opaque on transparent — not true magenta
+        let mut craft = RgbaImage {
+            width: 8,
+            height: 8,
+            pixels: [0u8, 0, 0, 0].repeat(64),
+        };
+        for y in 2..6 {
+            for x in 2..6 {
+                let i = (y * 8 + x) * 4;
+                craft.pixels[i] = 40;
+                craft.pixels[i + 1] = 200;
+                craft.pixels[i + 2] = 220;
+                craft.pixels[i + 3] = 255;
+            }
+        }
+        let bytes = craft.encode_png().unwrap();
+        assert_eq!(png_true_magenta_pixel_count(&bytes).unwrap(), 0);
+        assert!(png_nonblack_fraction(&bytes, 30).unwrap() > 0.1);
+    }
+
+    #[test]
+    fn side_orbit_differs_from_primary_nudge() {
+        let cam = [3.0, 28.0, 10.0];
+        let a = alt_camera_nudge_translation(cam, true);
+        let b = side_orbit_camera_translation(cam, true);
+        assert!((a[0] - b[0]).abs() > 5.0 || (a[2] - b[2]).abs() > 5.0);
+        assert!(b[1] < a[1] || b[2] != a[2]);
+    }
+
+    #[test]
+    fn h2_h3_name_stems_score_positive() {
+        for name in ["PulseMine", "MineDrone", "LoadingBay", "PipeJunction"] {
+            assert!(
+                gameplay_subject_score(name) > 0,
+                "{name} score={}",
+                gameplay_subject_score(name)
+            );
+            assert!(DOGFOOD_NAME_STEMS.iter().any(|s| *s == name));
+        }
+        assert!(all_dogfood_stems_score_positive());
     }
 
     #[test]

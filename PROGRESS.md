@@ -233,3 +233,24 @@ Findings: [docs/AGENT_SIGHT_DEBT_FINDINGS_2026-07-23.md](docs/AGENT_SIGHT_DEBT_F
 - [x] Plan file landed  
 - [x] R0–R4 complete  
 - [x] Findings: [docs/AGENT_SIGHT_DEBT_FINDINGS_2026-07-23.md](docs/AGENT_SIGHT_DEBT_FINDINGS_2026-07-23.md)
+
+---
+
+## Agent sight hardening — done
+
+Tier 1→3 (version dogfood, pixel gates, true multi-view, baseline) + craft dogfood: **1 new feature each** on CD/IF; **improve all existing features** (transparent 2D sprites; non-blocky IF machines; randomized IF height).
+
+Plan: [docs/AGENT_SIGHT_HARDENING_PLAN.md](docs/AGENT_SIGHT_HARDENING_PLAN.md).
+
+| Phase | Name | Status |
+|-------|------|--------|
+| **H0** | Grok-Bevy gates + side-view + rebuild | **done** |
+| **H1** | Version CD + IF as git projects | **done** |
+| **H2** | Crystal Drift: 1 new + improve all sprites | **done** |
+| **H3** | Iron Feud: 1 new + complex meshes + heightfield | **done** |
+| **H4–H5** | Live review + fix | **done** |
+| **H6** | Docs / findings | **done** |
+
+- [x] Plan file landed  
+- [x] H0–H6 complete
+- [x] Findings: [docs/AGENT_SIGHT_HARDENING_FINDINGS_2026-07-23.md](docs/AGENT_SIGHT_HARDENING_FINDINGS_2026-07-23.md)

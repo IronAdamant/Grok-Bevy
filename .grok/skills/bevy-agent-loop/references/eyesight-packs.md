@@ -94,3 +94,11 @@ grok-bevy see pack water --profile iron-feud --out-dir .
 ## Dual instances
 
 One app per BRP port (default 15702). Second game: different port + `bevy_register_target`. Sequential dogfood only on a single port.
+
+
+## Hardening gates (H0)
+
+- Sprite inventory: `scripts/check_sprite_transparency.py` — true-magenta (R>200,G<40,B>200,A>200) must be 0.
+- Full-frame: `png_nonblack_fraction` / path helper; CD Playing env should be clearly non-black.
+- Landscape: first alt nudge, then **side-orbit** second path if similar; still warn `views_similar` if both match.
+- Dogfood trees are sibling git repos — see docs/DOGFOOD_REPOS.md.
