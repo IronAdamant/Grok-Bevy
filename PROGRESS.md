@@ -190,3 +190,44 @@ Plan: [docs/AGENT_SIGHT_NEXT_PLAN.md](docs/AGENT_SIGHT_NEXT_PLAN.md).
 - [x] Plan file landed  
 - [x] S0–S4 complete  
 - [x] Findings: [docs/AGENT_SIGHT_NEXT_FINDINGS_2026-07-21.md](docs/AGENT_SIGHT_NEXT_FINDINGS_2026-07-21.md)
+
+---
+
+## Agent sight 2D + 3D — done
+
+Dimension-specific observation + dogfood. MCP first; IF height terrain flat→hills→mountains.  
+**No** livestream / editor / unlit suite / taste scoring. Long-session: no shortcuts.
+
+Plan: [docs/AGENT_SIGHT_2D3D_PLAN.md](docs/AGENT_SIGHT_2D3D_PLAN.md).
+
+| Phase | Name | Status |
+|-------|------|--------|
+| **D0** | Grok-Bevy 2D/3D sight + MCP rebuild | **done** |
+| **D1** | Crystal Drift: 2 features+assets, env improve, live | **done** |
+| **D2** | Iron Feud: 2 features+assets, height terrain, live | **done** |
+| **D3** | Live eyesight review both games | **done** |
+| **D4** | Fix + re-verify | **done** |
+| **D5** | Docs / findings / assessments | **done** |
+
+- [x] Plan file landed  
+- [x] D0–D5 complete  
+- [x] Findings: [docs/AGENT_SIGHT_2D3D_FINDINGS_2026-07-22.md](docs/AGENT_SIGHT_2D3D_FINDINGS_2026-07-22.md)
+
+---
+
+## Agent sight debt — planned
+
+Residual acuity + **full dogfood asset/env pass** (CD + IF): filter/multi-view/fovea debts; each game **1 new feature+asset**, **1 new env**, **improve all existing assets and environments**.
+
+Plan: [docs/AGENT_SIGHT_DEBT_PLAN.md](docs/AGENT_SIGHT_DEBT_PLAN.md).
+
+| Phase | Name | Status |
+|-------|------|--------|
+| **R0** | Grok-Bevy residual sight + MCP rebuild | planned |
+| **R1** | Crystal Drift: 1 new + 1 env + improve all assets/env | planned |
+| **R2** | Iron Feud: 1 new + 1 env + improve all assets/env | planned |
+| **R3** | Live review both + fix loop | planned |
+| **R4** | Docs / findings / assessments | planned |
+
+- [x] Plan file landed  
+- [ ] R0–R4 complete

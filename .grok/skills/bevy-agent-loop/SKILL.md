@@ -13,7 +13,8 @@ metadata:
 You control a **running** Bevy app. Prefer evidence from **agent eyesight** (pixels you open and judge) over guessing.  
 This is **not a Bevy editor** — eyesight is a sensory channel for the agent brain.
 
-Plan: `docs/AGENT_EYESIGHT_PLAN.md` (schema `grok-bevy.eyesight/v1`).
+Plan: `docs/AGENT_EYESIGHT_PLAN.md` (schema `grok-bevy.eyesight/v1`).  
+2D+3D sight: `docs/AGENT_SIGHT_2D3D_PLAN.md` + findings `docs/AGENT_SIGHT_2D3D_FINDINGS_2026-07-22.md`.
 
 ## Pins
 
@@ -21,9 +22,9 @@ Plan: `docs/AGENT_EYESIGHT_PLAN.md` (schema `grok-bevy.eyesight/v1`).
 - App must enable features **`remote,capture`** and add `BrpExtrasPlugin` when `remote` is on  
 - Prefer full **`bevy_brp_mcp`** when installed for hierarchy/watches/input  
 
-## Eyesight rules (hard — baseline + 20/20 acuity)
+## Eyesight rules (hard — baseline + 20/20 + 2D/3D)
 
-Plan: `docs/AGENT_EYESIGHT_PLAN.md` (eyes open) + `docs/AGENT_EYESIGHT_20_20_PLAN.md` (acuity).
+Plan: `docs/AGENT_EYESIGHT_PLAN.md` + `docs/AGENT_EYESIGHT_20_20_PLAN.md` + `docs/AGENT_SIGHT_2D3D_PLAN.md`.
 
 1. **Pixels are primary.** Query without opening captures is not eyesight.  
 2. **Open every PNG** returned (`abs_path` if chat truncates image bytes).  
@@ -31,11 +32,14 @@ Plan: `docs/AGENT_EYESIGHT_PLAN.md` (eyes open) + `docs/AGENT_EYESIGHT_20_20_PLA
 4. **Taste/design stay human-owned** — build to their requirements; do not claim AI art director.  
 5. **State gate (A0):** Iron Feud env claims need Playing (`IRON_FEUD_AUTO_PLAY=1`). Use `require_playing` / `wait_for_subjects`.  
 6. **True fovea (A1):** `bevy_see_entity` with projection (`ortho2d` / `topdown3d`) — not center guess when Name+Transform exist.  
-7. **Multi-view (A2):** env → `bevy_see_pack landscape|water` (game + alt view).  
-8. **Motion (A3):** physics/feel → `bevy_see_motion` + stimulus note; static_scene warning is honest.  
-9. **Clean subjects (A4):** default `subject_filter=gameplay_prefer`.  
+7. **Multi-view (A2):** env → `bevy_see_pack landscape|water` (game + alt view). 2D also `hud` / `env_2d`.  
+8. **Motion (A3):** physics/feel → `bevy_see_motion` + stimulus note; stills-only strips (no livestream).  
+9. **Clean subjects (A4):** default `subject_filter=gameplay_prefer` (new Names need score >0; demote OreCrystal / child mesh parts).  
 10. **Diff (A5):** `save_baseline` / `compare_baseline` or `bevy_see_diff` after visual changes.  
-11. **Black-frame warning:** empty window — dark space with sprites is not empty.
+11. **Black-frame warning:** empty window — dark space with sprites is not empty.  
+12. **Default one-shot:** `bevy_see_verify` / `grok-bevy see verify --profile crystal-drift|iron-feud` first.  
+13. **3D height:** landscape pack notes height_bands when TerrainFlat/Hill/Peak present; IF dogfood uses multi-band ground.  
+14. **No shortcuts:** rebuild MCP (`cargo install --path crates/grok-bevy --force`) before treating dogfood captures as pass evidence.
 
 ## Standard loop (hard requirements)
 
@@ -75,10 +79,12 @@ Default BRP port is **15702**. Only **one** app should bind that port. Dual `car
 | `bevy_see_region` | E1 pixel-rect crop (landscape / water / HUD) |
 | `bevy_see_motion` | E2 temporal strip (+ optional keys) |
 | `bevy_see_diff` | E3 baseline vs after (+ abs-diff) |
-| `bevy_see_pack` | Multi-view: entity_craft / landscape / water / physics_jump / lighting |
+| `bevy_see_verify` | One-shot full + ranked primary fovea (+zoom) — prefer first |
+| `bevy_see_pack` | Multi-view: entity_craft / landscape / water / physics_jump / lighting / diagnostic / **hud** / **env_2d** |
 | `bevy_brp_mcp_status` | Upstream MCP install help |
 
-CLI mirrors: `grok-bevy see scene|entity|region|motion|diff|pack`.
+CLI mirrors: `grok-bevy see scene|verify|entity|region|motion|diff|pack`.  
+Profiles: `--profile crystal-drift` (2D) | `iron-feud` (3D topdown, require_playing).
 
 ## Exact BRP method names (do not invent)
 
@@ -153,3 +159,4 @@ Same port; complementary to grok-bevy’s focused tools.
 ## References
 
 - `references/loop-checklist.md`  
+- `references/eyesight-packs.md` (2D/3D packs + profiles)  

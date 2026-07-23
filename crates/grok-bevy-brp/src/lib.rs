@@ -10,14 +10,16 @@ pub mod eyesight;
 pub use eyesight::{
     annotate_subjects_projection, apply_game_profile, collapse_duplicate_names, crop_png_around,
     crop_png_file, crop_rgba, diagnostic_primary_name, draw_rect_outline, eyesight_path,
-    file_content_hash, filter_subjects, gameplay_subject_score, infer_app_state_from_subjects,
-    is_mostly_black_png, mean_abs_diff, montage_horizontal, packet_to_mcp_content, query_all_subjects,
-    rank_primary_subject, see_diff, see_entity, see_motion, see_pack, see_region, see_scene,
-    see_verify, subjects_from_query, subjects_look_menu_only, wait_for_subject_names,
-    world_to_screen_ortho, write_diff_png, CaptureEntry, CaptureRole, EyesightPacket,
-    EyesightSubject, ProjectionMode, RgbaImage, SeeOptions, StimulusInfo, SubjectFilterMode,
-    ACUITY_LABEL, DEFAULT_CROP_HALF, DEFAULT_MAX_SUBJECTS, DEFAULT_MOTION_FRAMES,
-    DEFAULT_MOTION_INTERVAL_MS, EYESIGHT_SCHEMA,
+    file_content_hash, filter_subjects, gameplay_subject_score, height_band_subjects,
+    height_readability_note, infer_app_state_from_subjects, is_known_pack, is_mostly_black_png,
+    mean_abs_diff, montage_horizontal, packet_to_mcp_content, query_all_subjects,
+    rank_primary_subject, region_preset_rect, see_diff, see_entity, see_motion, see_pack,
+    see_region, see_scene, see_verify, subjects_from_query, subjects_look_menu_only,
+    wait_for_subject_names, world_to_screen_ortho, write_diff_png, CaptureEntry, CaptureRole,
+    EyesightPacket, EyesightSubject, ProjectionMode, RegionPreset, RgbaImage, SeeOptions,
+    StimulusInfo, SubjectFilterMode, ACUITY_LABEL, DEFAULT_CROP_HALF, DEFAULT_MAX_SUBJECTS,
+    DEFAULT_MOTION_FRAMES, DEFAULT_MOTION_INTERVAL_MS, EYESIGHT_SCHEMA, GAMEPLAY_NAME_HINTS,
+    HEIGHT_BAND_NAME_HINTS, KNOWN_PACKS,
 };
 
 use anyhow::{anyhow, Context, Result};

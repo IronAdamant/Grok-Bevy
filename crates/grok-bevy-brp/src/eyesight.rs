@@ -54,6 +54,17 @@ pub const PRIMARY_PREFIXES: &[&str] = &[
     "IceField",
     "AshPlateau",
     "RidgeOutcrop",
+    // D1/D2 dogfood features (2D+3D sight plan)
+    "CometFragment",
+    "SignalSat",
+    "MineDrone",
+    "WatchPost",
+    "OreSilo",
+    "PipeJunction",
+    "TerrainFlat",
+    "TerrainHill",
+    "TerrainPeak",
+    "HeightTerrain",
 ];
 
 /// Acuity milestone label for 20/20-candidate packets.
@@ -98,6 +109,25 @@ pub const GAMEPLAY_NAME_HINTS: &[&str] = &[
     "Plateau",
     "Ridge",
     "Ice",
+    // D1 Crystal Drift (2D) dogfood Names — agent sight 2D+3D plan
+    "Comet",
+    "Fragment",
+    "Signal",
+    "Sat",
+    "Mine",
+    "Drone",
+    // D2 Iron Feud (3D) dogfood Names + height terrain bands
+    "Watch",
+    "Post",
+    "Silo",
+    "Pipe",
+    "Junction",
+    "Terrain",
+    "Flat",
+    "Hill",
+    "Peak",
+    "Height",
+    "Mountain",
 ];
 
 /// Role of a capture within an eyesight packet.
@@ -735,6 +765,42 @@ fn is_noise_name(name: &str) -> bool {
         || name.starts_with("OreCrystal")
         || name.contains("Menu")
         || name == "unnamed"
+        || name == "OwnershipFlag"
+        // Child mesh parts only (not WaterBody / SignalSat / etc.)
+        || is_child_mesh_part(name)
+}
+
+/// Local-space child mesh Names that crowd subject slots (not top-level gameplay Names).
+fn is_child_mesh_part(name: &str) -> bool {
+    const PARTS: &[&str] = &[
+        "WatchPostLegs",
+        "WatchPostDeck",
+        "WatchPostCabin",
+        "OreSiloBody",
+        "OreSiloCap",
+        "RelayMast",
+        "RelayDish",
+        "TreeTrunk",
+        "TreeCanopy",
+        "InserterArm",
+        "DrillBit",
+        "AsmRotor",
+        "Turbine",
+    ];
+    PARTS.iter().any(|p| name == *p)
+        || name.ends_with("Legs")
+        || name.ends_with("Deck")
+        || name.ends_with("Cabin")
+        || name.ends_with("Mast")
+        || name.ends_with("Dish")
+        || name.ends_with("Trunk")
+        || name.ends_with("Canopy")
+        || name.ends_with("Rotor")
+        || name.ends_with("Turbine")
+        // "…Body" / "…Cap" only when compound (e.g. OreSiloBody), not WaterBody alone
+        || (name.ends_with("Body") && name != "WaterBody" && name.len() > "Body".len())
+        || (name.ends_with("Cap") && name != "Cap" && name.contains("Silo")
+            || name.ends_with("SiloCap"))
 }
 
 /// Collapse identical Names; keep first entity, set `duplicate_count` (S0.2).
@@ -766,11 +832,143 @@ pub fn collapse_duplicate_names(subjects: Vec<EyesightSubject>) -> Vec<EyesightS
         .collect()
 }
 
+/// Known multi-view pack names (2D + 3D + shared).
+pub const KNOWN_PACKS: &[&str] = &[
+    "entity_craft",
+    "landscape",
+    "water",
+    "physics_jump",
+    "lighting",
+    "diagnostic",
+    // D0 2D-specific packs
+    "hud",
+    "env_2d",
+];
+
+/// Height-band Name stems used for 3D landscape readability notes (D0.3 / D2).
+pub const HEIGHT_BAND_NAME_HINTS: &[&str] = &[
+    "TerrainFlat",
+    "TerrainHill",
+    "TerrainPeak",
+    "HeightTerrain",
+    "Terrain",
+];
+
+/// Named region presets for pixel crops (HUD, horizon band, etc.). Pure geometry — no BRP.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RegionPreset {
+    /// Top-left HUD strip (score/fuel/objective chrome).
+    HudTopLeft,
+    /// Full top HUD bar.
+    HudTopBar,
+    /// Upper third horizon/sky band (2D parallax / 3D ridgeline).
+    HorizonBand,
+    /// Lower third ground/surface band.
+    GroundBand,
+    /// Center half of the frame (general fovea-ish region without entity).
+    CenterHalf,
+}
+
+impl RegionPreset {
+    pub fn parse(s: &str) -> Option<Self> {
+        match s.to_ascii_lowercase().replace('-', "_").as_str() {
+            "hud" | "hud_top_left" | "hud_tl" => Some(Self::HudTopLeft),
+            "hud_top" | "hud_bar" | "hud_top_bar" => Some(Self::HudTopBar),
+            "horizon" | "horizon_band" | "sky" => Some(Self::HorizonBand),
+            "ground" | "ground_band" | "surface" => Some(Self::GroundBand),
+            "center" | "center_half" => Some(Self::CenterHalf),
+            _ => None,
+        }
+    }
+
+    /// Pixel rect `(x, y, w, h)` for a given frame size.
+    pub fn rect(self, screen_w: u32, screen_h: u32) -> (u32, u32, u32, u32) {
+        let w = screen_w.max(1);
+        let h = screen_h.max(1);
+        match self {
+            Self::HudTopLeft => {
+                let rw = (w / 3).max(64).min(w);
+                let rh = (h / 5).max(48).min(h);
+                (0, 0, rw, rh)
+            }
+            Self::HudTopBar => {
+                let rh = (h / 6).max(40).min(h);
+                (0, 0, w, rh)
+            }
+            Self::HorizonBand => {
+                let rh = (h / 3).max(1);
+                (0, 0, w, rh)
+            }
+            Self::GroundBand => {
+                let rh = (h / 3).max(1);
+                let y = h.saturating_sub(rh);
+                (0, y, w, rh)
+            }
+            Self::CenterHalf => {
+                let rw = (w / 2).max(1);
+                let rh = (h / 2).max(1);
+                let x = w.saturating_sub(rw) / 2;
+                let y = h.saturating_sub(rh) / 2;
+                (x, y, rw, rh)
+            }
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::HudTopLeft => "hud_top_left",
+            Self::HudTopBar => "hud_top_bar",
+            Self::HorizonBand => "horizon_band",
+            Self::GroundBand => "ground_band",
+            Self::CenterHalf => "center_half",
+        }
+    }
+}
+
+/// Resolve a region preset name to pixel rect for `see_region` (unit-testable pure helper).
+pub fn region_preset_rect(preset: &str, screen_w: u32, screen_h: u32) -> Option<(u32, u32, u32, u32)> {
+    RegionPreset::parse(preset).map(|p| p.rect(screen_w, screen_h))
+}
+
+/// Subjects that look like height-band terrain Names (flat / hill / peak).
+pub fn height_band_subjects(subjects: &[EyesightSubject]) -> Vec<String> {
+    subjects
+        .iter()
+        .filter(|s| {
+            HEIGHT_BAND_NAME_HINTS
+                .iter()
+                .any(|h| s.name == *h || s.name.starts_with(h) || s.name.contains(h))
+        })
+        .map(|s| s.name.clone())
+        .collect()
+}
+
+/// Note for landscape packs when height-band Names are present (D0.3).
+pub fn height_readability_note(subjects: &[EyesightSubject]) -> Option<String> {
+    let bands = height_band_subjects(subjects);
+    if bands.is_empty() {
+        return None;
+    }
+    Some(format!(
+        "height_bands present in subjects ({}); landscape full+alt should show relief when terrain has hills/mountains",
+        bands.join(", ")
+    ))
+}
+
+/// True if pack name is a known eyesight pack (including D0 2D packs).
+pub fn is_known_pack(pack: &str) -> bool {
+    let p = pack.to_ascii_lowercase();
+    KNOWN_PACKS.iter().any(|k| *k == p)
+        || p == "entity"
+        || p == "physics"
+}
+
 /// Apply named game profile defaults into SeeOptions (S0.3). Explicit non-empty waits already set are kept if non-empty.
 pub fn apply_game_profile(opts: &mut SeeOptions, profile: &str) {
     match profile.to_ascii_lowercase().as_str() {
-        "crystal-drift" | "crystal_drift" | "cd" => {
+        "crystal-drift" | "crystal_drift" | "cd" | "ortho2d" | "2d" => {
             opts.projection = ProjectionMode::Ortho2d;
+            // Half-extents match common 1280×720 ortho arenas (full width/height ≈ 1280×720 world units).
             opts.visible_half_w = 640.0;
             opts.visible_half_h = 360.0;
             opts.require_playing = false;
@@ -783,8 +981,9 @@ pub fn apply_game_profile(opts: &mut SeeOptions, profile: &str) {
                 opts.subject_class.clone()
             };
         }
-        "iron-feud" | "iron_feud" | "if" => {
+        "iron-feud" | "iron_feud" | "if" | "topdown3d" | "topdown" | "3d" => {
             opts.projection = ProjectionMode::TopDown3d;
+            // Strategy camera world half-extent (XZ) for IF factory scale.
             opts.visible_half_w = 20.0;
             opts.visible_half_h = 20.0;
             opts.require_playing = true;
@@ -808,19 +1007,25 @@ pub fn apply_game_profile(opts: &mut SeeOptions, profile: &str) {
     }
 }
 
-/// Diagnostic / env allowlist when no ranked Player (S0.8).
+/// Diagnostic / env allowlist when no ranked Player (S0.8). Prefer env over OreCrystal.
 pub fn diagnostic_primary_name(subjects: &[EyesightSubject]) -> String {
     if let Some(r) = rank_primary_subject(subjects) {
         return r;
     }
     for n in [
         "WaterBody",
+        "StrategyCamera",
         "FieldScrap_A",
         "Ground",
+        "HeightTerrain",
+        "TerrainFlat",
         "DerelictStation",
         "Player",
         "BeaconBuoy",
         "RelayTower",
+        "WatchPost",
+        "CometFragment",
+        "SignalSat",
     ] {
         if subjects.iter().any(|s| s.name == n || s.name.contains(n)) {
             return n.to_string();
@@ -845,6 +1050,12 @@ pub fn file_content_hash(path: &Path) -> Result<u64> {
 /// Score for gameplay preference sort (higher first).
 pub fn gameplay_subject_score(name: &str) -> i32 {
     let mut score = 0i32;
+    // Exact primary Names get a hard boost so they survive max_subjects caps.
+    for exact in PRIMARY_EXACT {
+        if name == *exact {
+            score += 200;
+        }
+    }
     for hint in GAMEPLAY_NAME_HINTS {
         if name == *hint {
             score += 100;
@@ -852,8 +1063,22 @@ pub fn gameplay_subject_score(name: &str) -> i32 {
             score += 40;
         }
     }
+    // Terrain height-band Names must survive IF landscape filter.
+    for h in HEIGHT_BAND_NAME_HINTS {
+        if name == *h || name.starts_with(h) {
+            score += 60;
+        }
+    }
     if name.starts_with("Star") || name.contains("Particle") || name.contains("parallax") {
         score -= 80;
+    }
+    // OreCrystal* is gameplay noise for sight primary/filter (contains "Ore"+"Crystal").
+    if name.starts_with("OreCrystal") {
+        score -= 160;
+    }
+    // Child mesh parts (local 0,0,0) crowd subject slots — demote hard.
+    if is_child_mesh_part(name) || name == "OwnershipFlag" {
+        score -= 200;
     }
     if name == "unnamed" {
         score -= 50;
@@ -888,14 +1113,19 @@ pub fn filter_subjects(
         SubjectFilterMode::GameplayPrefer => {
             let mut preferred: Vec<_> = subjects
                 .iter()
-                .filter(|s| gameplay_subject_score(&s.name) > 0)
+                .filter(|s| {
+                    !is_noise_name(&s.name) && gameplay_subject_score(&s.name) > 0
+                })
                 .cloned()
                 .collect();
             preferred.sort_by(|a, b| {
                 gameplay_subject_score(&b.name).cmp(&gameplay_subject_score(&a.name))
             });
             if preferred.is_empty() {
-                let mut all = subjects;
+                let mut all: Vec<_> = subjects
+                    .into_iter()
+                    .filter(|s| !is_noise_name(&s.name))
+                    .collect();
                 all.sort_by(|a, b| {
                     gameplay_subject_score(&b.name).cmp(&gameplay_subject_score(&a.name))
                 });
@@ -1746,7 +1976,7 @@ pub fn see_diff(
     Ok(packet)
 }
 
-/// E4/A2 packs: entity_craft | landscape | water | physics_jump | lighting | diagnostic
+/// E4/A2 packs: entity_craft | landscape | water | physics_jump | lighting | diagnostic | hud | env_2d
 pub fn see_pack(
     client: &BrpClient,
     opts: &SeeOptions,
@@ -1759,6 +1989,8 @@ pub fn see_pack(
             "landscape" => "landscape",
             "physics_jump" | "physics" => "physics_motion",
             "lighting" | "diagnostic" => "lighting",
+            "hud" => "hud",
+            "env_2d" => "env_2d",
             _ => "entity",
         },
         format!("pack:{pack} — {}", opts.intent),
@@ -1774,9 +2006,10 @@ pub fn see_pack(
             let scene = see_scene(client, opts)?;
             packet.subjects = scene.subjects.clone();
             packet.app_state = scene.app_state;
+            packet.primary_subject = scene.primary_subject.clone();
             packet.captures.extend(scene.captures);
             views.push("game".into());
-            // Fovea on primary gameplay subject if any
+            // Fovea on primary gameplay subject (Player preferred for 2D craft after verify)
             let name = packet
                 .primary_subject
                 .clone()
@@ -1789,6 +2022,83 @@ pub fn see_pack(
                     }
                 }
                 views.push("fovea".into());
+            }
+        }
+        "hud" => {
+            // 2D HUD craft: full + top-left + top-bar crops (region presets)
+            let mut opts = opts.clone();
+            if let Some(ref p) = opts.profile.clone() {
+                apply_game_profile(&mut opts, p);
+            }
+            let full_path = eyesight_path(&opts.out_dir, "pack_hud_full.png");
+            let img = capture_viewport_image(client, &full_path)?;
+            packet.captures.push(
+                CaptureEntry::from_path(CaptureRole::Full, &img.path)?
+                    .with_note("hud pack full frame"),
+            );
+            views.push("game".into());
+            let w = packet.captures[0].width.unwrap_or(1280);
+            let h = packet.captures[0].height.unwrap_or(720);
+            for preset in [RegionPreset::HudTopLeft, RegionPreset::HudTopBar] {
+                let (x, y, rw, rh) = preset.rect(w, h);
+                let crop_path =
+                    eyesight_path(&opts.out_dir, &format!("pack_hud_{}.png", preset.label()));
+                crop_png_file(&img.path, &crop_path, x, y, rw, rh)?;
+                packet.captures.push(
+                    CaptureEntry::from_path(CaptureRole::Crop, &crop_path)?.with_note(format!(
+                        "hud region preset {} rect=({x},{y},{rw},{rh})",
+                        preset.label()
+                    )),
+                );
+                views.push(preset.label().into());
+            }
+            let subjects = query_all_subjects(client);
+            let (filtered, _, inferred) = apply_subject_pipeline(subjects, &opts, w, h);
+            packet.subjects = filtered;
+            packet.app_state = inferred;
+            packet.primary_subject = rank_primary_subject(&packet.subjects);
+        }
+        "env_2d" => {
+            // 2D parallax env composition: full + horizon band + center station/debris crop
+            let mut opts = opts.clone();
+            if let Some(ref p) = opts.profile.clone() {
+                apply_game_profile(&mut opts, p);
+            } else {
+                apply_game_profile(&mut opts, "crystal-drift");
+            }
+            let full_path = eyesight_path(&opts.out_dir, "pack_env_2d_full.png");
+            let img = capture_viewport_image(client, &full_path)?;
+            packet.captures.push(
+                CaptureEntry::from_path(CaptureRole::Full, &img.path)?
+                    .with_note("env_2d full (parallax/composition)"),
+            );
+            views.push("game".into());
+            let w = packet.captures[0].width.unwrap_or(1280);
+            let h = packet.captures[0].height.unwrap_or(720);
+            let (hx, hy, hw, hh) = RegionPreset::HorizonBand.rect(w, h);
+            let horizon_path = eyesight_path(&opts.out_dir, "pack_env_2d_horizon.png");
+            crop_png_file(&img.path, &horizon_path, hx, hy, hw, hh)?;
+            packet.captures.push(
+                CaptureEntry::from_path(CaptureRole::Crop, &horizon_path)?
+                    .with_note("env_2d horizon band"),
+            );
+            views.push("horizon".into());
+            let (cx, cy, cw, ch) = RegionPreset::CenterHalf.rect(w, h);
+            let center_path = eyesight_path(&opts.out_dir, "pack_env_2d_station_or_debris.png");
+            crop_png_file(&img.path, &center_path, cx, cy, cw, ch)?;
+            packet.captures.push(
+                CaptureEntry::from_path(CaptureRole::Crop, &center_path)?
+                    .with_note("env_2d center (station/debris/craft)"),
+            );
+            views.push("center".into());
+            let subjects = query_all_subjects(client);
+            let (filtered, _, inferred) = apply_subject_pipeline(subjects, &opts, w, h);
+            packet.subjects = filtered;
+            packet.app_state = inferred;
+            packet.primary_subject = rank_primary_subject(&packet.subjects);
+            // Prefer env Names for primary in env_2d when Player not ranked first
+            if packet.primary_subject.as_deref() == Some("Player") {
+                // keep Player; craft is fine
             }
         }
         "landscape" | "water" => {
@@ -1804,9 +2114,14 @@ pub fn see_pack(
             };
             let full_path = eyesight_path(&opts.out_dir, game_name);
             let img = capture_viewport_image(client, &full_path)?;
+            let mut game_note = format!("{pack} view=game");
+            if pack == "landscape" {
+                game_note.push_str(
+                    " — height readability: full+alt should show relief when terrain has hills/mountains",
+                );
+            }
             packet.captures.push(
-                CaptureEntry::from_path(CaptureRole::Full, &img.path)?
-                    .with_note(format!("{pack} view=game")),
+                CaptureEntry::from_path(CaptureRole::Full, &img.path)?.with_note(game_note),
             );
             views.push("game".into());
             let w = packet.captures[0].width.unwrap_or(1280);
@@ -1827,6 +2142,7 @@ pub fn see_pack(
 
             let subjects = query_all_subjects(client);
             let game_hash = file_content_hash(&img.path).ok();
+            // Prefer larger nudge for 3D so alt ≠ game when possible
             if let Some(cam_s) = subjects.iter().find(|s| {
                 s.name == "StrategyCamera"
                     || s.name == "MainCamera"
@@ -1838,9 +2154,10 @@ pub fn see_pack(
                     let nudged = if matches!(opts.projection, ProjectionMode::TopDown3d)
                         || cam_s.name.contains("Strategy")
                     {
-                        json!({ "x": t[0], "y": (t[1] + 18.0).max(20.0), "z": t[2] })
+                        // Larger vertical lift so height relief is readable in alt view
+                        json!({ "x": t[0], "y": (t[1] + 28.0).max(30.0), "z": t[2] + 8.0 })
                     } else {
-                        json!({ "x": t[0] + 180.0, "y": t[1] + 80.0, "z": t[2] })
+                        json!({ "x": t[0] + 220.0, "y": t[1] + 100.0, "z": t[2] })
                     };
                     let role = if matches!(opts.projection, ProjectionMode::TopDown3d)
                         || cam_s.name.contains("Strategy")
@@ -1886,6 +2203,11 @@ pub fn see_pack(
             packet.subjects = filtered;
             packet.app_state = inferred;
             packet.primary_subject = rank_primary_subject(&packet.subjects);
+            if pack == "landscape" {
+                if let Some(note) = height_readability_note(&packet.subjects) {
+                    packet.push_warning(note);
+                }
+            }
         }
         "physics_jump" | "physics" => {
             let mut motion_opts = opts.clone();
@@ -1948,7 +2270,7 @@ pub fn see_pack(
         }
         other => {
             return Err(anyhow!(
-                "unknown pack '{other}' (entity_craft|landscape|water|physics_jump|lighting|diagnostic)"
+                "unknown pack '{other}' (entity_craft|landscape|water|physics_jump|lighting|diagnostic|hud|env_2d)"
             ));
         }
     }
@@ -2105,6 +2427,37 @@ mod tests {
     }
 
     #[test]
+    fn filter_prefers_waterbody_and_terrain_over_ore_and_children() {
+        let mut subs = vec![
+            sub("WaterBody"),
+            sub("Ground"),
+            sub("StrategyCamera"),
+            sub("WatchPost"),
+            sub("OreSilo"),
+            sub("TerrainFlat"),
+            sub("TerrainHill_N"),
+            sub("TerrainPeak_W"),
+            sub("WatchPostLegs"),
+            sub("OreSiloBody"),
+            sub("OreSiloCap"),
+        ];
+        for i in 0..12 {
+            subs.push(sub(&format!("OreCrystal{i}")));
+        }
+        let (out, _) = filter_subjects(subs, SubjectFilterMode::GameplayPrefer, 24);
+        assert!(out.iter().any(|s| s.name == "WaterBody"), "WaterBody must survive filter");
+        assert!(out.iter().any(|s| s.name == "WatchPost"));
+        assert!(out.iter().any(|s| s.name == "TerrainPeak_W"));
+        assert!(!out.iter().any(|s| s.name.starts_with("OreCrystal")));
+        assert!(
+            !out.iter().any(|s| s.name == "WatchPostLegs" || s.name == "OreSiloBody"),
+            "child mesh parts must not crowd filter"
+        );
+        // StrategyCamera is PRIMARY_EXACT tier 1 ahead of WaterBody/Ground
+        assert_eq!(rank_primary_subject(&out).as_deref(), Some("StrategyCamera"));
+    }
+
+    #[test]
     fn collapse_duplicate_names_counts() {
         let subs = vec![
             sub("OreCrystal0"),
@@ -2127,6 +2480,119 @@ mod tests {
         assert!(o.require_playing);
         assert!(matches!(o.projection, ProjectionMode::TopDown3d));
         assert!(o.wait_for_subjects.iter().any(|s| s == "WaterBody"));
+        assert_eq!(o.visible_half_w, 20.0);
+        assert_eq!(o.visible_half_h, 20.0);
+    }
+
+    #[test]
+    fn apply_profile_crystal_drift_ortho2d() {
+        let mut o = SeeOptions::default();
+        apply_game_profile(&mut o, "crystal-drift");
+        assert!(!o.require_playing);
+        assert!(matches!(o.projection, ProjectionMode::Ortho2d));
+        assert!(o.wait_for_subjects.iter().any(|s| s == "Player"));
+        assert_eq!(o.visible_half_w, 640.0);
+        assert_eq!(o.visible_half_h, 360.0);
+    }
+
+    #[test]
+    fn region_preset_hud_top_left_rect() {
+        let (x, y, w, h) = region_preset_rect("hud_top_left", 1280, 720).unwrap();
+        assert_eq!((x, y), (0, 0));
+        assert!(w >= 64 && w <= 1280);
+        assert!(h >= 48 && h <= 720);
+        assert!(w <= 1280 / 2 + 1); // roughly left third
+        let (x2, y2, w2, h2) = RegionPreset::HudTopBar.rect(1280, 720);
+        assert_eq!((x2, y2), (0, 0));
+        assert_eq!(w2, 1280);
+        assert!(h2 < 720);
+    }
+
+    #[test]
+    fn region_preset_horizon_and_center() {
+        let (x, y, w, h) = RegionPreset::HorizonBand.rect(1280, 720);
+        assert_eq!((x, y, w), (0, 0, 1280));
+        assert!(h <= 720 / 2);
+        let (cx, cy, cw, ch) = RegionPreset::CenterHalf.rect(1280, 720);
+        assert!(cx > 0 && cy > 0);
+        assert_eq!(cw, 640);
+        assert_eq!(ch, 360);
+    }
+
+    #[test]
+    fn d1_d2_name_hints_score_above_zero() {
+        for name in [
+            "CometFragment",
+            "SignalSat",
+            "MineDrone",
+            "WatchPost",
+            "OreSilo",
+            "PipeJunction",
+            "TerrainFlat",
+            "TerrainHill_N",
+            "TerrainPeak_A",
+            "HeightTerrain",
+        ] {
+            assert!(
+                gameplay_subject_score(name) > 0,
+                "{name} must survive gameplay_prefer (score={})",
+                gameplay_subject_score(name)
+            );
+        }
+        // Stars still demoted
+        assert!(gameplay_subject_score("Star12") < 0 || gameplay_subject_score("Star12") <= 0);
+    }
+
+    #[test]
+    fn height_band_subjects_and_note() {
+        let subs = vec![
+            sub("OreCrystal0"),
+            sub("TerrainFlat"),
+            sub("TerrainHill_E"),
+            sub("TerrainPeak_N"),
+            sub("WatchPost"),
+        ];
+        let bands = height_band_subjects(&subs);
+        assert!(bands.iter().any(|n| n == "TerrainFlat"));
+        assert!(bands.iter().any(|n| n.contains("Hill")));
+        assert!(bands.iter().any(|n| n.contains("Peak")));
+        let note = height_readability_note(&subs).expect("note when bands present");
+        assert!(note.contains("height_bands"));
+        assert!(height_readability_note(&[sub("Player"), sub("WaterBody")]).is_none());
+    }
+
+    #[test]
+    fn known_packs_include_2d_and_3d() {
+        assert!(is_known_pack("landscape"));
+        assert!(is_known_pack("water"));
+        assert!(is_known_pack("hud"));
+        assert!(is_known_pack("env_2d"));
+        assert!(is_known_pack("entity_craft"));
+        assert!(is_known_pack("diagnostic"));
+        assert!(!is_known_pack("livestream"));
+        assert!(!is_known_pack("taste_scorer"));
+    }
+
+    #[test]
+    fn filter_keeps_new_dogfood_names() {
+        let subs = vec![
+            sub("Star0"),
+            sub("Star1"),
+            sub("CometFragment"),
+            sub("SignalSat"),
+            sub("WatchPost"),
+            sub("OreSilo"),
+            sub("TerrainPeak_W"),
+            sub("Player"),
+        ];
+        let (out, _) = filter_subjects(subs, SubjectFilterMode::GameplayPrefer, 24);
+        assert!(out.iter().any(|s| s.name == "CometFragment"));
+        assert!(out.iter().any(|s| s.name == "SignalSat"));
+        assert!(out.iter().any(|s| s.name == "WatchPost"));
+        assert!(out.iter().any(|s| s.name == "OreSilo"));
+        assert!(out.iter().any(|s| s.name.contains("TerrainPeak")));
+        assert!(out.iter().any(|s| s.name == "Player"));
+        assert!(!out.iter().any(|s| s.name.starts_with("Star")));
     }
 
     #[test]

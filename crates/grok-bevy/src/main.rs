@@ -211,7 +211,7 @@ enum SeeCommands {
         #[arg(long, default_value = "before/after refinement")]
         intent: String,
     },
-    /// Multi-view pack: entity_craft | landscape | water | physics_jump | lighting | diagnostic.
+    /// Multi-view pack: entity_craft | landscape | water | physics_jump | lighting | diagnostic | hud | env_2d.
     Pack {
         #[arg(long, default_value_t = DEFAULT_PORT)]
         port: u16,

@@ -48,5 +48,7 @@ MCP capture is the optic nerve; **agent eyesight** (entity, landscape, water, ph
 Checklist: [PROGRESS.md](../PROGRESS.md) (v0.3+).  
 Eyesight baseline: [AGENT_EYESIGHT_PLAN.md](AGENT_EYESIGHT_PLAN.md) (V0–V6).  
 Eyesight 20/20: [AGENT_EYESIGHT_20_20_PLAN.md](AGENT_EYESIGHT_20_20_PLAN.md) (A0–A8).  
-Agent sight next (profiles, ranking, dogfood): [AGENT_SIGHT_NEXT_PLAN.md](AGENT_SIGHT_NEXT_PLAN.md).  
+Agent sight next (profiles, ranking, dogfood): [AGENT_SIGHT_NEXT_PLAN.md](AGENT_SIGHT_NEXT_PLAN.md) (S0–S4 shipped).  
+Agent sight **2D + 3D** (profiles/packs, CD+IF height terrain): [AGENT_SIGHT_2D3D_PLAN.md](AGENT_SIGHT_2D3D_PLAN.md) (D0–D5 shipped; findings [AGENT_SIGHT_2D3D_FINDINGS_2026-07-22.md](AGENT_SIGHT_2D3D_FINDINGS_2026-07-22.md)).  
+Agent sight **debt** (next `/goal`): [AGENT_SIGHT_DEBT_PLAN.md](AGENT_SIGHT_DEBT_PLAN.md) — residual filter/multi-view/fovea; full CD+IF asset+env improve pass.  
 Session plan detail: maintained in agent sessions; this file is the **durable product roadmap**.

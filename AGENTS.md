@@ -59,3 +59,5 @@ The sample app is an **integration fixture** for doctor/BRP/capture CI — not a
 - Agent eyesight baseline (`/goal`): [docs/AGENT_EYESIGHT_PLAN.md](docs/AGENT_EYESIGHT_PLAN.md) — V0–V6 “eyes open”, **not** an editor  
 - Agent eyesight **20/20 acuity** (`/goal`): [docs/AGENT_EYESIGHT_20_20_PLAN.md](docs/AGENT_EYESIGHT_20_20_PLAN.md) — fovea, multi-view, subjects, motion; **taste/design human-owned**  
 - Agent sight **next** (`/goal`): [docs/AGENT_SIGHT_NEXT_PLAN.md](docs/AGENT_SIGHT_NEXT_PLAN.md) — MCP-first ranking/profiles; dogfood CD + IF; **no** video/editor/taste scorer  
+- Agent sight **2D + 3D** (shipped): [docs/AGENT_SIGHT_2D3D_PLAN.md](docs/AGENT_SIGHT_2D3D_PLAN.md) — dim-specific sight; packs `hud`/`env_2d`; IF height terrain; findings [docs/AGENT_SIGHT_2D3D_FINDINGS_2026-07-22.md](docs/AGENT_SIGHT_2D3D_FINDINGS_2026-07-22.md)  
+- Agent sight **debt** (`/goal`): [docs/AGENT_SIGHT_DEBT_PLAN.md](docs/AGENT_SIGHT_DEBT_PLAN.md) — residual acuity; CD+IF full asset/env improve + 1 new feature + 1 new env each  

@@ -149,9 +149,10 @@ pub fn mcp_instructions() -> String {
         "Asset roots: assets/sprites, models, ui, audio. Ship: cargo build --release; package binary + assets. ",
         "Loop: bevy_env_check → bevy_launch_app (wait_secs=0) → bevy_wait_brp → bevy_see_scene (acuity) → mutate → re-see. Port 15702. ",
         "Agent sight (not editor, not taste): bevy_see_scene|verify|entity|region|motion|diff|pack. ",
-        "Profiles: crystal-drift | iron-feud (sets projection, wait_for, require_playing). primary_subject ranked (Player/WaterBody over Crystal/OreCrystal). ",
-        "Open every PNG abs_path. bevy_see_verify = full+fovea. Iron Feud: IRON_FEUD_AUTO_PLAY=1. No livestream. ",
-        "Taste/design human-owned. Plan: docs/AGENT_SIGHT_NEXT_PLAN.md. Skill: bevy-agent-loop. ",
+        "Profiles: crystal-drift (2D ortho) | iron-feud (3D topdown, require_playing). primary_subject ranked (Player/WaterBody over Crystal/OreCrystal). ",
+        "Packs: entity_craft|landscape|water|physics_jump|lighting|diagnostic|hud|env_2d. Landscape notes height_bands when TerrainFlat/Hill/Peak present. ",
+        "Open every PNG abs_path. bevy_see_verify = full+fovea (use first). Iron Feud: IRON_FEUD_AUTO_PLAY=1. No livestream. ",
+        "Taste/design human-owned. Plan: docs/AGENT_SIGHT_2D3D_PLAN.md. Skill: bevy-agent-loop. ",
         "Cold compile: prefer shell `cargo run --features remote,capture` then bevy_wait_brp; MCP launch is best after a warm target/. ",
         "bevy_workflow is a router (skills+steps), not an autopilot. Optional full BRP: cargo install bevy_brp_mcp --locked."
     )
@@ -232,7 +233,7 @@ pub fn prompt_catalog() -> &'static [PromptDef] {
                 "3. MCP loop: bevy_env_check → bevy_launch_app (wait_secs=0) → bevy_wait_brp → bevy_see_scene (open PNGs) → ",
                 "optional bevy_see_entity / bevy_see_motion / bevy_see_diff → describe defects → patch → re-see.\n",
                 "4. Aesthetic claims require opened capture paths. Prefer Name entities.\n",
-                "5. Packs: bevy_see_pack (entity_craft|landscape|water|physics_jump|lighting).\n",
+                "5. Packs: bevy_see_pack (entity_craft|landscape|water|physics_jump|lighting|diagnostic|hud|env_2d).\n",
                 "6. Optional: bevy_workflow goal \"verify_scene\". Plan: docs/AGENT_EYESIGHT_PLAN.md.\n",
             ),
         },
@@ -772,7 +773,7 @@ fn tool_defs() -> Value {
         },
         {
             "name": "bevy_see_pack",
-            "description": "Agent eyesight multi-view pack: entity_craft|landscape|water|physics_jump|lighting|diagnostic (A2/A6).",
+            "description": "Agent eyesight multi-view pack: entity_craft|landscape|water|physics_jump|lighting|diagnostic|hud|env_2d (2D HUD/env + 3D height landscape).",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -781,13 +782,14 @@ fn tool_defs() -> Value {
                     "out_dir": { "type": "string", "default": "." },
                     "pack": {
                         "type": "string",
-                        "description": "entity_craft | landscape | water | physics_jump | lighting | diagnostic"
+                        "description": "entity_craft | landscape | water | physics_jump | lighting | diagnostic | hud | env_2d"
                     },
                     "intent": { "type": "string", "default": "multi-view eyesight pack" },
                     "style_intent": { "type": "string" },
                     "projection": { "type": "string", "default": "ortho2d" },
                     "require_playing": { "type": "boolean", "default": false },
-                    "subject_filter": { "type": "string", "default": "gameplay_prefer" }
+                    "subject_filter": { "type": "string", "default": "gameplay_prefer" },
+                    "profile": { "type": "string", "description": "crystal-drift|iron-feud (2D vs 3D defaults)" }
                 },
                 "required": ["pack"]
             }
