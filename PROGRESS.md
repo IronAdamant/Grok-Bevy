@@ -254,3 +254,22 @@ Plan: [docs/AGENT_SIGHT_HARDENING_PLAN.md](docs/AGENT_SIGHT_HARDENING_PLAN.md).
 - [x] Plan file landed  
 - [x] H0–H6 complete
 - [x] Findings: [docs/AGENT_SIGHT_HARDENING_FINDINGS_2026-07-23.md](docs/AGENT_SIGHT_HARDENING_FINDINGS_2026-07-23.md)
+
+---
+
+## Agent sight fidelity — planned
+
+Next Tier 1→3 cycle after hardening: **1 new feature each** on CD/IF; **improve all existing features** to complex non-block silhouettes; CD transparent sprite BGs (no purple/magenta plates); IF randomized varying height; residual multi-view honesty.
+
+Plan: [docs/AGENT_SIGHT_FIDELITY_PLAN.md](docs/AGENT_SIGHT_FIDELITY_PLAN.md).
+
+| Phase | Name | Status |
+|-------|------|--------|
+| **F0** | Grok-Bevy residual platform (multi-view / gates / stems) | **planned** |
+| **F1** | Crystal Drift: 1 new + improve all sprites | **planned** |
+| **F2** | Iron Feud: 1 new + complex meshes + heightfield | **planned** |
+| **F3–F4** | Live review + fix | **planned** |
+| **F5–F6** | Docs / findings / commits | **planned** |
+
+- [x] Plan file landed  
+- [ ] F0–F6 execute under `/goal`

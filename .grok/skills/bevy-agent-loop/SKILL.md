@@ -14,7 +14,9 @@ You control a **running** Bevy app. Prefer evidence from **agent eyesight** (pix
 This is **not a Bevy editor** — eyesight is a sensory channel for the agent brain.
 
 Plan: `docs/AGENT_EYESIGHT_PLAN.md` (schema `grok-bevy.eyesight/v1`).  
-2D+3D sight: `docs/AGENT_SIGHT_2D3D_PLAN.md` + findings `docs/AGENT_SIGHT_2D3D_FINDINGS_2026-07-22.md`.
+2D+3D sight: `docs/AGENT_SIGHT_2D3D_PLAN.md` + findings `docs/AGENT_SIGHT_2D3D_FINDINGS_2026-07-22.md`.  
+Hardening (shipped): `docs/AGENT_SIGHT_HARDENING_PLAN.md`.  
+Fidelity (next dogfood): `docs/AGENT_SIGHT_FIDELITY_PLAN.md` — complex craft, transparent 2D BG, IF heightfield.
 
 ## Pins
 
@@ -42,7 +44,9 @@ Plan: `docs/AGENT_EYESIGHT_PLAN.md` + `docs/AGENT_EYESIGHT_20_20_PLAN.md` + `doc
 14. **No shortcuts:** rebuild MCP (`cargo install --path crates/grok-bevy --force`) before treating dogfood captures as pass evidence.  
 15. **Name onboarding:** every new dogfood Name must score `gameplay_subject_score > 0` (add stems to `GAMEPLAY_NAME_HINTS` / `DOGFOOD_NAME_STEMS` + unit test).  
 16. **Baseline after visual change:** `save_baseline` then `compare_baseline` once per game when iterating assets/env.  
-17. **Sequential BRP:** one game on port 15702 at a time.
+17. **Sequential BRP:** one game on port 15702 at a time.  
+18. **Transparent 2D BG law:** CD sprites must be opaque subject + fully transparent background — **no purple/magenta square plates**; run `scripts/check_sprite_transparency.py` (true-magenta = 0).  
+19. **Complex 3D craft:** IF drills/belts/machines multi-part silhouettes (not block soup); terrain randomized heightfield with placeable start pocket.
 
 ## Standard loop (hard requirements)
 
