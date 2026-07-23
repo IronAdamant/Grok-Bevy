@@ -27,8 +27,10 @@
 |------|--------|
 | New feature | `OreCrusher` multi-part (chassis/hopper/jaws/flywheel/chute) + `crusher_tint.png` |
 | Machines | Drills/belts already multi-part; chests feet; accumulator terminals; assembler arm/inlet; solar stand; multi-part rock |
+| Env props | Multi-part (not single cuboid): cliff face/ledge/buttress/cap; supply crate body/lid/band/feet; ash base/berm/mound; terrain saddle deck/abutments/crown; field scrap base/shards/pipe |
 | Terrain | Stronger multi-octave `heightfield_y`; variance + +Y winding tests PASS |
-| Live | Playing; primary=`StrategyCamera`; `OreCrusher` present; landscape game≠alt; nonblack≈1.0 |
+| Test | `env_props_are_multipart_in_spawn_source` — every F2 env spawn uses `add_children` |
+| Live | Playing; primary=`StrategyCamera`; `OreCrusher` + env parents present; child Names (e.g. ScrapPipe, SaddleAbut*) in packets; landscape game≠alt; nonblack≈1.0 |
 
 ## Assessments
 
@@ -44,7 +46,7 @@
 - `{SCRATCH}/crystal-drift-build.log`, `sprite-audit.log`, `dogfood-see-2d.log`, `eyesight/cd/`
 - `{SCRATCH}/iron-feud-build.log`, `iron-feud-tests.log`, `dogfood-see-3d.log`, `eyesight/if/`
 
-## Residual (optional later)
+## Residual (optional later — out of F2 craft bar)
 
 - Strategy multi-view still limited by camera FOV; dedicated spawn camera remains optional.
-- Not every env prop equally re-sculpted beyond rock / machines.
+- Subject list truncation can hide lower-ranked Names (OreCrusher still spawned; appears when ranked higher or in pack subjects).
