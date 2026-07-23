@@ -108,6 +108,11 @@ pub const DOGFOOD_NAME_STEMS: &[&str] = &[
     "MineDrone",
     "LoadingBay",
     "PipeJunction",
+    // F1/F2 fidelity craft dogfood
+    "CargoPod",
+    "RepairDrone",
+    "OreCrusher",
+    "SignalRelay",
 ];
 
 /// Gameplay name prefixes / substrings preferred in subject filter (A4).
@@ -1135,13 +1140,19 @@ pub fn captures_look_similar(path_a: &Path, path_b: &Path) -> Result<bool> {
 
 /// Pure helper: aggressive **side/orbit** camera translation when first alt is still similar.
 /// Places camera well off-axis so height maps should differ under top-down strategy views.
+/// High strategy Y gets a lower orbit and larger lateral offset (F0 fidelity residual).
 pub fn side_orbit_camera_translation(cam: [f64; 3], topdown3d: bool) -> [f64; 3] {
     if topdown3d {
-        [
-            cam[0] - 28.0,
-            (cam[1] + 8.0).max(18.0), // lower Y for more lateral parallax
-            cam[2] + 26.0,
-        ]
+        let high = cam[1] > 30.0;
+        let lat = if high { 42.0 } else { 28.0 };
+        let z_off = if high { 38.0 } else { 26.0 };
+        // Drop well below strategy altitude for parallax on heightfields.
+        let y = if high {
+            (cam[1] * 0.45).clamp(14.0, 22.0)
+        } else {
+            (cam[1] + 8.0).max(18.0).min(cam[1].max(18.0))
+        };
+        [cam[0] - lat, y, cam[2] + z_off]
     } else {
         [cam[0] - 320.0, cam[1] + 40.0, cam[2]]
     }
@@ -1157,6 +1168,9 @@ pub const TALL_ENTITY_PREFIXES: &[&str] = &[
     "TerrainSaddle",
     "CliffRidge",
     "WarpGate",
+    "OreCrusher",
+    "SignalRelay",
+    "LoadingBay",
 ];
 
 /// Default crop half for entity fovea; larger for tall silhouettes.
@@ -2908,6 +2922,28 @@ mod tests {
             assert!(DOGFOOD_NAME_STEMS.iter().any(|s| *s == name));
         }
         assert!(all_dogfood_stems_score_positive());
+    }
+
+    #[test]
+    fn f1_f2_name_stems_score_positive() {
+        for name in ["CargoPod", "RepairDrone", "OreCrusher", "SignalRelay"] {
+            assert!(
+                gameplay_subject_score(name) > 0,
+                "{name} score={}",
+                gameplay_subject_score(name)
+            );
+            assert!(DOGFOOD_NAME_STEMS.iter().any(|s| *s == name));
+        }
+        assert!(all_dogfood_stems_score_positive());
+    }
+
+    #[test]
+    fn side_orbit_high_strategy_y_drops_and_offsets() {
+        let high = [10.0, 48.0, 12.0];
+        let o = side_orbit_camera_translation(high, true);
+        assert!(o[1] < high[1], "orbit Y should drop for high strategy cam");
+        assert!((o[0] - high[0]).abs() >= 28.0);
+        assert!((o[2] - high[2]).abs() >= 26.0);
     }
 
     #[test]

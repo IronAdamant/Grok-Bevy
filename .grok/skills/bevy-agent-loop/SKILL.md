@@ -16,7 +16,7 @@ This is **not a Bevy editor** — eyesight is a sensory channel for the agent br
 Plan: `docs/AGENT_EYESIGHT_PLAN.md` (schema `grok-bevy.eyesight/v1`).  
 2D+3D sight: `docs/AGENT_SIGHT_2D3D_PLAN.md` + findings `docs/AGENT_SIGHT_2D3D_FINDINGS_2026-07-22.md`.  
 Hardening (shipped): `docs/AGENT_SIGHT_HARDENING_PLAN.md`.  
-Fidelity (next dogfood): `docs/AGENT_SIGHT_FIDELITY_PLAN.md` — complex craft, transparent 2D BG, IF heightfield.
+Fidelity (shipped): `docs/AGENT_SIGHT_FIDELITY_PLAN.md` + findings `docs/AGENT_SIGHT_FIDELITY_FINDINGS_2026-07-23.md` — complex craft, transparent 2D BG, IF heightfield.
 
 ## Pins
 

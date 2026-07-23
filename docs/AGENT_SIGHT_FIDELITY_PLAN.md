@@ -1,6 +1,6 @@
 # Agent Sight Fidelity Plan — Tier 1→3 + craft-quality dogfood (next cycle)
 
-**Status:** ready for `/goal` (not started)  
+**Status:** complete (F0–F6 shipped 2026-07-23)  
 **Audience:** implementing agent under `/goal`; human may be away for a long session  
 **Identity:** Grok-Bevy is **agent assistant infrastructure**, not a Bevy editor.  
 **Focus:** raise **craft fidelity** so agent sight judges **recognizable product features**, not block placeholders — dogfood **Crystal Drift** and **Iron Feud** with **exactly one new feature each** and a **full improve-all-existing-features** pass. Existing craft must leave “block soup”: drills read as drills, belts as belts; CD sprites have **true transparent backgrounds** (no purple/magenta square plates); IF terrain is **randomized varying height**, not a flat slab world.
@@ -127,25 +127,25 @@ Implement only what residual multi-view / gates still need. Prefer pure, unit-te
 
 ### F0.1 Multi-view honesty (Tier 1)
 
-- [ ] Confirm BRP camera nudge uses **`[x,y,z]` array** translation (hardening fix); unit tests still pass.  
-- [ ] When landscape alt remains similar under high strategy camera: prefer a **temporary dedicated side/orbit camera entity** (or larger documented offset) so open PNGs differ **or** leave only honest `views_similar` (no fake multi-angle claims).  
-- [ ] Unit-test pure placement math if new helpers land.
+- [x] Confirm BRP camera nudge uses **`[x,y,z]` array** translation (hardening fix); unit tests still pass.  
+- [x] When landscape alt remains similar under high strategy camera: prefer a **temporary dedicated side/orbit camera entity** (or larger documented offset) so open PNGs differ **or** leave only honest `views_similar` (no fake multi-angle claims).  
+- [x] Unit-test pure placement math if new helpers land.
 
 ### F0.2 Pixel / craft gates (Tier 1)
 
-- [ ] Reconfirm `png_nonblack_fraction`, `png_true_magenta_pixel_count`, `scripts/check_sprite_transparency.py`.  
-- [ ] Document thresholds in skill: CD full-frame nonblack ≥ practical threshold in Playing; **true-magenta ≤ 0** on every `assets/sprites/*.png`.  
-- [ ] Unit tests green for black / magenta plate / clean transparent cases.
+- [x] Reconfirm `png_nonblack_fraction`, `png_true_magenta_pixel_count`, `scripts/check_sprite_transparency.py`.  
+- [x] Document thresholds in skill: CD full-frame nonblack ≥ practical threshold in Playing; **true-magenta ≤ 0** on every `assets/sprites/*.png`.  
+- [x] Unit tests green for black / magenta plate / clean transparent cases.
 
 ### F0.3 Name onboarding (Tier 1)
 
-- [ ] Extend `DOGFOOD_NAME_STEMS` / gameplay hints for F1–F2 planned Names (score > 0).  
-- [ ] Unit tests for new stems.
+- [x] Extend `DOGFOOD_NAME_STEMS` / gameplay hints for F1–F2 planned Names (score > 0).  
+- [x] Unit tests for new stems.
 
 ### F0.4 Surface
 
-- [ ] MCP/CLI instructions still state transparent-BG law, complex-mesh dogfood, pixel gates.  
-- [ ] `cargo test -p grok-bevy -p grok-bevy-brp` PASS; rebuild/install if code changed; `{SCRATCH}/mcp-surface.log`.
+- [x] MCP/CLI instructions still state transparent-BG law, complex-mesh dogfood, pixel gates.  
+- [x] `cargo test -p grok-bevy -p grok-bevy-brp` PASS; rebuild/install if code changed; `{SCRATCH}/mcp-surface.log`.
 
 **F0 exit:** Tests green; no exclusions; install current if platform changed.
 
@@ -202,12 +202,12 @@ Each row: regenerate or replace PNG + keep path stable when possible + reference
 
 ### Systems / env
 
-- [ ] New feature: components + spawn + system + `Name` + GAMEPLAY_NAME_HINTS / stems.  
-- [ ] All features re-checked for on-screen start composition where practical.  
-- [ ] Env still readable on full (pixel gate: nonblack fraction / region luminance).  
-- [ ] Build `remote,capture` → `{SCRATCH}/crystal-drift-build.log` PASS.  
-- [ ] Sprite audit: `check_sprite_transparency.py` (or equivalent) → **true-magenta count 0** for all inventory PNGs.  
-- [ ] Commit in Crystal Drift sibling repo.
+- [x] New feature: components + spawn + system + `Name` + GAMEPLAY_NAME_HINTS / stems.  
+- [x] All features re-checked for on-screen start composition where practical.  
+- [x] Env still readable on full (pixel gate: nonblack fraction / region luminance).  
+- [x] Build `remote,capture` → `{SCRATCH}/crystal-drift-build.log` PASS.  
+- [x] Sprite audit: `check_sprite_transparency.py` (or equivalent) → **true-magenta count 0** for all inventory PNGs.  
+- [x] Commit in Crystal Drift sibling repo.
 
 ### Eyesight (F3)
 
@@ -267,19 +267,19 @@ For each `MachineKind` spawn path in mesh code (and env props in spawn), multi-p
 
 ### Terrain (non-negotiable craft)
 
-- [ ] Height-varying mesh remains **primary** Ground (heightfield / multi-vertex); not slab-only landmarks.  
-- [ ] Heights **randomized** (seeded RNG OK for reproducible tests).  
-- [ ] Continuous range flat → mid → high measurable (vertex Y stats or samples).  
-- [ ] **Start cells (~0..10)** placeable (flat or gently sloped; document reserved pocket).  
-- [ ] Unit tests: height variance + **upward (+Y) winding** so landscape is not black void.  
-- [ ] Landscape pack: relief **visible** in opened PNGs.  
+- [x] Height-varying mesh remains **primary** Ground (heightfield / multi-vertex); not slab-only landmarks.  
+- [x] Heights **randomized** (seeded RNG OK for reproducible tests).  
+- [x] Continuous range flat → mid → high measurable (vertex Y stats or samples).  
+- [x] **Start cells (~0..10)** placeable (flat or gently sloped; document reserved pocket).  
+- [x] Unit tests: height variance + **upward (+Y) winding** so landscape is not black void.  
+- [x] Landscape pack: relief **visible** in opened PNGs.  
 
 ### Systems
 
-- [ ] New feature spawn + Name + hints.  
-- [ ] Mesh code modular; keep factory sim playable.  
-- [ ] Build log `{SCRATCH}/iron-feud-build.log` PASS.  
-- [ ] Commit in Iron Feud sibling repo.
+- [x] New feature spawn + Name + hints.  
+- [x] Mesh code modular; keep factory sim playable.  
+- [x] Build log `{SCRATCH}/iron-feud-build.log` PASS.  
+- [x] Commit in Iron Feud sibling repo.
 
 ### Eyesight (F3)
 
@@ -341,27 +341,27 @@ Sequential port **15702**.
 
 ## 9. Phase F4 — Fix loop
 
-- [ ] Fix magenta/purple plates, invisible env, blocky machines, flat-only terrain, filter score 0, Menu-only IF, black frame / -Y winding void, silent BRP mutate.  
-- [ ] Re-run only failed game.  
-- [ ] **Do not declare done** with cuboid drills, opaque purple square sprites, or slab-only ground.
+- [x] Fix magenta/purple plates, invisible env, blocky machines, flat-only terrain, filter score 0, Menu-only IF, black frame / -Y winding void, silent BRP mutate.  
+- [x] Re-run only failed game.  
+- [x] **Do not declare done** with cuboid drills, opaque purple square sprites, or slab-only ground.
 
 ---
 
 ## 10. Phase F5 — Docs and closeout
 
-- [ ] Flip checkboxes in this file when truly done.  
-- [ ] Update [PROGRESS.md](../PROGRESS.md).  
-- [ ] Write `docs/AGENT_SIGHT_FIDELITY_FINDINGS_YYYY-MM-DD.md` (Tier items, craft inventories, packet paths, height description, assessments).  
-- [ ] Skill + eyesight-packs: reaffirm transparent-BG law, complex-mesh dogfood, pixel gates, multi-view honesty.  
-- [ ] Link ROADMAP / AGENTS.  
+- [x] Flip checkboxes in this file when truly done.  
+- [x] Update [PROGRESS.md](../PROGRESS.md).  
+- [x] Write `docs/AGENT_SIGHT_FIDELITY_FINDINGS_YYYY-MM-DD.md` (Tier items, craft inventories, packet paths, height description, assessments).  
+- [x] Skill + eyesight-packs: reaffirm transparent-BG law, complex-mesh dogfood, pixel gates, multi-view honesty.  
+- [x] Link ROADMAP / AGENTS.  
 
 ---
 
 ## 11. Phase F6 — Git
 
-- [ ] Grok-Bevy: commit platform + docs (no force-push).  
-- [ ] Crystal Drift: commit new feature + sprite inventory.  
-- [ ] Iron Feud: commit new feature + mesh/terrain pass.  
+- [x] Grok-Bevy: commit platform + docs (no force-push).  
+- [x] Crystal Drift: commit new feature + sprite inventory.  
+- [x] Iron Feud: commit new feature + mesh/terrain pass.  
 
 ---
 
@@ -420,4 +420,5 @@ Update plan checkboxes + PROGRESS + findings. Taste/design human-owned; agent si
 
 | Date | Change |
 |------|--------|
+| 2026-07-23 | F0–F6 complete: stems, CargoPod, OreCrusher, heightfield, findings |
 | 2026-07-23 | Initial fidelity plan: Tier 1–3 + CD/IF craft dogfood cycle after hardening (1 new feature each, improve all, complex shapes, transparent BG, randomized IF height) |
