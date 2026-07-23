@@ -832,6 +832,27 @@ fn is_noise_name(name: &str) -> bool {
 
 /// Local-space child mesh Names that crowd subject slots (not top-level gameplay Names).
 fn is_child_mesh_part(name: &str) -> bool {
+    // Keep top-level dogfood feature Names (F1/F2) out of demotion.
+    if matches!(
+        name,
+        "OreCrusher"
+            | "LoadingBay"
+            | "CargoPod"
+            | "PulseMine"
+            | "SupplyCrate"
+            | "AshPlateau"
+            | "TerrainSaddle"
+            | "FieldScrap"
+            | "WatchPost"
+            | "OreSilo"
+            | "RelayTower"
+            | "RadarDome"
+    ) || name.starts_with("FieldScrap")
+        || name.starts_with("RockOutcrop")
+        || name.starts_with("CliffRidge")
+    {
+        return false;
+    }
     const PARTS: &[&str] = &[
         "WatchPostLegs",
         "WatchPostDeck",
@@ -846,8 +867,50 @@ fn is_child_mesh_part(name: &str) -> bool {
         "DrillBit",
         "AsmRotor",
         "Turbine",
+        // F2 multiparts
+        "CrusherChassis",
+        "CrusherHopper",
+        "CrusherFlywheel",
+        "CrusherChute",
+        "CliffFace",
+        "CliffLedge",
+        "CliffButtress",
+        "CliffCap",
+        "CrateLid",
+        "CrateBand",
+        "AshBerm",
+        "AshMound",
+        "SaddleAbutL",
+        "SaddleAbutR",
+        "SaddleCrown",
+        "ScrapShardA",
+        "ScrapShardB",
+        "ScrapPipe",
+        "RockPeak",
+        "RockShelf",
     ];
     PARTS.iter().any(|p| name == *p)
+        || name.starts_with("CrusherJaw")
+        || name.starts_with("CrateFoot")
+        || name.starts_with("ChestFoot")
+        || name.starts_with("LoadingBayPost")
+        || (name.starts_with("LoadingBay") && name != "LoadingBay")
+        || (name.starts_with("Drill") && name != "Drill" && !name.contains("Tower"))
+        || name.starts_with("Belt")
+        || name.starts_with("Accu")
+        || name.starts_with("Asm")
+        || name.starts_with("SolarStand")
+        || name.starts_with("SolarFrame")
+        || name.starts_with("SolarGlass")
+        || name.starts_with("SolarGrid")
+        || name.starts_with("Furnace")
+        || name.starts_with("Boiler")
+        || name.starts_with("Engine")
+        || name.starts_with("Pump")
+        || name.starts_with("Inserter")
+        || name.starts_with("Chest")
+        || name.starts_with("Elec")
+        || name.starts_with("Burner")
         || name.ends_with("Legs")
         || name.ends_with("Deck")
         || name.ends_with("Cabin")
@@ -859,15 +922,27 @@ fn is_child_mesh_part(name: &str) -> bool {
         || name.ends_with("Turbine")
         || name.ends_with("Shell")
         || name.ends_with("Base")
-        || name.ends_with("Dish")
-        || name.starts_with("LoadingBayPost")
-        || name.starts_with("LoadingBay") && name != "LoadingBay"
-        || name.starts_with("Drill") && name != "Drill" && !name.contains("Tower")
-        || name.starts_with("Belt")
+        || name.ends_with("Hopper")
+        || name.ends_with("Chassis")
+        || name.ends_with("Flywheel")
+        || name.ends_with("Chute")
+        || name.ends_with("Ledge")
+        || name.ends_with("Buttress")
+        || name.ends_with("Berm")
+        || name.ends_with("Mound")
+        || name.ends_with("Crown")
+        || name.ends_with("Pipe")
+        || name.ends_with("ShardA")
+        || name.ends_with("ShardB")
+        || name.ends_with("Shelf")
+        || name.ends_with("Peak") && name.starts_with("Rock")
         // "…Body" / "…Cap" only when compound (e.g. OreSiloBody), not WaterBody alone
         || (name.ends_with("Body") && name != "WaterBody" && name.len() > "Body".len())
-        || (name.ends_with("Cap") && name != "Cap" && name.contains("Silo")
-            || name.ends_with("SiloCap"))
+        || (name.ends_with("Cap") && name != "Cap" && name.contains("Silo") || name.ends_with("SiloCap"))
+        || name.ends_with("Foot0")
+        || name.ends_with("Foot1")
+        || name.ends_with("Foot2")
+        || name.ends_with("Foot3")
 }
 
 /// Collapse identical Names; keep first entity, set `duplicate_count` (S0.2).
@@ -1287,6 +1362,15 @@ pub fn gameplay_subject_score(name: &str) -> i32 {
             score += 200;
         }
     }
+    // Exact dogfood feature stems (F1/F2 new Names) outrank multiparts / generic chests.
+    for stem in DOGFOOD_NAME_STEMS {
+        if name == *stem {
+            score += 120;
+        } else if name.starts_with(stem) {
+            // FieldScrap_A etc. — keep parent scrap piles ranked.
+            score += 90;
+        }
+    }
     for hint in GAMEPLAY_NAME_HINTS {
         if name == *hint {
             score += 100;
@@ -1310,6 +1394,14 @@ pub fn gameplay_subject_score(name: &str) -> i32 {
     // Child mesh parts (local 0,0,0) crowd subject slots — demote hard.
     if is_child_mesh_part(name) || name == "OwnershipFlag" {
         score -= 200;
+    }
+    // Machine display Names with spaces are useful but must not outrank OreCrusher dogfood.
+    if name.contains(' ') {
+        score -= 30;
+    }
+    // DrillTower is a child tower part name, not a top-level feature.
+    if name == "DrillTower" {
+        score -= 150;
     }
     if name == "unnamed" {
         score -= 50;
@@ -2778,6 +2870,81 @@ mod tests {
         );
         // StrategyCamera is PRIMARY_EXACT tier 1 ahead of WaterBody/Ground
         assert_eq!(rank_primary_subject(&out).as_deref(), Some("StrategyCamera"));
+    }
+
+    /// F2: multiparts must not crowd out OreCrusher under max_subjects=24.
+    #[test]
+    fn filter_keeps_ore_crusher_when_multiparts_crowd() {
+        let mut subs = vec![
+            sub("StrategyCamera"),
+            sub("Ground"),
+            sub("WaterBody"),
+            sub("TerrainFlat"),
+            sub("TerrainHill_N"),
+            sub("TerrainPeak_N"),
+            sub("OreCrusher"),
+            sub("LoadingBay"),
+            sub("SupplyCrate"),
+            sub("AshPlateau"),
+            sub("TerrainSaddle"),
+            sub("FieldScrap_A"),
+            sub("CliffRidge_West"),
+            sub("WatchPost"),
+            sub("RadarDome"),
+        ];
+        // Flood with F2 child mesh parts that previously crowded the subject cap.
+        for n in [
+            "ScrapPipe",
+            "ScrapBase",
+            "ScrapShardA",
+            "SaddleDeck",
+            "SaddleAbutL",
+            "SaddleAbutR",
+            "SaddleCrown",
+            "CliffFace",
+            "CliffLedge",
+            "CliffButtress",
+            "CliffCap",
+            "CrateBody",
+            "CrateLid",
+            "CrateBand",
+            "CrateFoot0",
+            "AshBase",
+            "AshBerm",
+            "AshMound",
+            "CrusherChassis",
+            "CrusherHopper",
+            "CrusherJawL",
+            "CrusherFlywheel",
+            "RockPeak",
+            "RockShelf",
+            "DrillBit",
+            "BeltDeck",
+            "OwnershipFlag",
+        ] {
+            subs.push(sub(n));
+        }
+        let (out, _) = filter_subjects(subs, SubjectFilterMode::GameplayPrefer, 24);
+        assert!(
+            out.iter().any(|s| s.name == "OreCrusher"),
+            "OreCrusher must survive multiparts; got {:?}",
+            out.iter().map(|s| s.name.as_str()).collect::<Vec<_>>()
+        );
+        assert!(!out.iter().any(|s| s.name == "ScrapPipe" || s.name == "SaddleAbutL"));
+        assert!(!out.iter().any(|s| s.name == "CrusherChassis" || s.name == "CliffFace"));
+        assert!(gameplay_subject_score("OreCrusher") > 0);
+        assert!(is_noise_name("ScrapPipe") || gameplay_subject_score("ScrapPipe") <= 0);
+        // Dogfood stem beats generic placed machines with spaces.
+        assert!(
+            gameplay_subject_score("OreCrusher") > gameplay_subject_score("Wooden Chest"),
+            "OreCrusher={} Wooden Chest={}",
+            gameplay_subject_score("OreCrusher"),
+            gameplay_subject_score("Wooden Chest")
+        );
+        assert!(
+            gameplay_subject_score("OreCrusher") > gameplay_subject_score("DrillTower"),
+            "OreCrusher must beat DrillTower child"
+        );
     }
 
     #[test]

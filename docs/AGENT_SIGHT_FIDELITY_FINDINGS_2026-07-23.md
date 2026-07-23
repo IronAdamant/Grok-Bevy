@@ -46,7 +46,13 @@
 - `{SCRATCH}/crystal-drift-build.log`, `sprite-audit.log`, `dogfood-see-2d.log`, `eyesight/cd/`
 - `{SCRATCH}/iron-feud-build.log`, `iron-feud-tests.log`, `dogfood-see-3d.log`, `eyesight/if/`
 
-## Residual (optional later — out of F2 craft bar)
+## F2.1 subject ranking fix (same day)
+
+- Expanded `is_child_mesh_part` for F2 multiparts; protect top-level dogfood Names.
+- `gameplay_subject_score`: exact `DOGFOOD_NAME_STEMS` +120 so OreCrusher survives max_subjects=24.
+- Unit test `filter_keeps_ore_crusher_when_multiparts_crowd` PASS.
+- Live re-verify: **OreCrusher in subjects**; `see entity --name OreCrusher` crops OK; proof `{SCRATCH}/orecrusher-subject-proof.txt`, `dogfood-see-3d-oreprove2.log`.
+
+## Residual (optional later)
 
 - Strategy multi-view still limited by camera FOV; dedicated spawn camera remains optional.
-- Subject list truncation can hide lower-ranked Names (OreCrusher still spawned; appears when ranked higher or in pack subjects).
