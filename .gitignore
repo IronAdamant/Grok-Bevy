@@ -46,6 +46,8 @@ journal/
 # Screenshots written by BRP extras during local demos
 /screenshots/
 /captures/
+# Accidental root capture (BRP PNG written without .png extension; keep on disk)
+/once
 # Local package output
 /dist/
 
