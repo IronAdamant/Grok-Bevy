@@ -1946,6 +1946,36 @@ pub fn see_verify(client: &BrpClient, opts: &SeeOptions) -> Result<EyesightPacke
     Ok(packet)
 }
 
+/// Pick subjects for entity fovea: exact Name first, then contains; prefer higher gameplay score.
+/// Avoids picking an unrelated first BRP row when names are ambiguous.
+pub fn match_subjects_for_entity<'a>(
+    subjects: &'a [EyesightSubject],
+    entity_name: &str,
+) -> Vec<&'a EyesightSubject> {
+    if entity_name == "*" {
+        return subjects.iter().collect();
+    }
+    let mut exact: Vec<&EyesightSubject> = subjects
+        .iter()
+        .filter(|s| s.name == entity_name)
+        .collect();
+    if !exact.is_empty() {
+        exact.sort_by(|a, b| {
+            gameplay_subject_score(&b.name).cmp(&gameplay_subject_score(&a.name))
+        });
+        return exact;
+    }
+    let mut partial: Vec<&EyesightSubject> = subjects
+        .iter()
+        .filter(|s| s.name.contains(entity_name))
+        .filter(|s| !is_child_mesh_part(&s.name))
+        .collect();
+    partial.sort_by(|a, b| {
+        gameplay_subject_score(&b.name).cmp(&gameplay_subject_score(&a.name))
+    });
+    partial
+}
+
 /// E1 true fovea: project entity → screen, crop (+ optional zoom ladder).
 pub fn see_entity(
     client: &BrpClient,
@@ -1978,16 +2008,31 @@ pub fn see_entity(
         half,
     );
 
-    let matched: Vec<EyesightSubject> = raw
-        .iter()
-        .filter(|s| s.name == entity_name || s.name.contains(entity_name) || entity_name == "*")
-        .cloned()
-        .collect();
+    let matched = match_subjects_for_entity(&raw, entity_name);
 
     let (cx, cy, proj_note) = if let (Some(sx), Some(sy)) = (screen_x, screen_y) {
         (sx, sy, "explicit screen coords".to_string())
-    } else if let Some(s) = matched.first().and_then(|s| s.screen_xy) {
-        (s[0], s[1], "world→screen projection".to_string())
+    } else if let Some(hit) = matched.first() {
+        if let Some(xy) = hit.screen_xy {
+            let mode_note = match opts.projection {
+                ProjectionMode::TopDown3d => "topdown3d XZ",
+                ProjectionMode::Ortho2d => "ortho2d XY",
+            };
+            (
+                xy[0],
+                xy[1],
+                format!(
+                    "world→screen projection ({mode_note}) name='{}'",
+                    hit.name
+                ),
+            )
+        } else {
+            (
+                w / 2,
+                h / 2,
+                "fallback center (matched entity has no screen_xy)".to_string(),
+            )
+        }
     } else {
         (
             w / 2,
@@ -2069,7 +2114,7 @@ pub fn see_entity(
             duplicate_count: None,
         });
     } else {
-        packet.subjects = matched;
+        packet.subjects = matched.into_iter().cloned().collect();
     }
 
     let json_path = eyesight_path(
@@ -3438,6 +3483,110 @@ mod tests {
         let (sx, sy) = world_to_screen_ortho(0.0, 0.0, 0.0, 0.0, 10.0, 10.0, 100, 100);
         assert!((sx as i32 - 50).abs() <= 1);
         assert!((sy as i32 - 50).abs() <= 1);
+    }
+
+    /// Regression: IF fovea must use XZ + iron-feud half extents, not ortho XY (centers everything).
+    #[test]
+    fn topdown3d_projects_ore_crusher_off_center() {
+        // StrategyCamera [3, 28, 10], OreCrusher [14.5, 0, 7.5], half 22 (iron-feud profile).
+        let cam = [3.0, 28.0, 10.0];
+        let crusher = [14.5, 0.0, 7.5];
+        let (sx, sy) = world_to_screen_ortho(
+            crusher[0],
+            crusher[2],
+            cam[0],
+            cam[2],
+            22.0,
+            22.0,
+            2560,
+            1440,
+        );
+        // Expect ~1949, ~801 (not near image center 1280,720).
+        assert!(
+            sx > 1800 && sx < 2100,
+            "topdown X should place crusher right of center, got sx={sx}"
+        );
+        assert!(
+            (sy as i32 - 801).abs() < 40,
+            "topdown Z→sy near 801, got sy={sy}"
+        );
+
+        // Bug path: ortho2d using Y (height) + half 640 → near center (~1303,776).
+        let (bad_x, bad_y) = world_to_screen_ortho(
+            crusher[0],
+            crusher[1],
+            cam[0],
+            cam[1],
+            640.0,
+            360.0,
+            2560,
+            1440,
+        );
+        assert!(
+            (bad_x as i32 - 1303).abs() < 30,
+            "documents ortho-misaim sx≈1303, got {bad_x}"
+        );
+        assert!((bad_y as i32 - 776).abs() < 30, "documents ortho-misaim sy≈776, got {bad_y}");
+        assert!(sx != bad_x, "topdown and ortho must differ for this pose");
+    }
+
+    #[test]
+    fn annotate_topdown_uses_xz_not_xy() {
+        let mut subs = vec![
+            EyesightSubject {
+                name: "OreCrusher".into(),
+                entity: Some(1),
+                translation: Some([14.5, 0.0, 7.5]),
+                on_screen_estimate: None,
+                on_screen: None,
+                screen_xy: None,
+                screen_aabb: None,
+                duplicate_count: None,
+            },
+        ];
+        let cam = [3.0, 28.0, 10.0];
+        annotate_subjects_projection(
+            &mut subs,
+            cam,
+            ProjectionMode::TopDown3d,
+            22.0,
+            22.0,
+            2560,
+            1440,
+            96,
+        );
+        let xy = subs[0].screen_xy.expect("screen_xy");
+        assert!(xy[0] > 1800, "got {:?}", xy);
+    }
+
+    #[test]
+    fn match_subjects_prefers_exact_name() {
+        let subs = vec![
+            EyesightSubject {
+                name: "OreSilo".into(),
+                entity: Some(1),
+                translation: Some([2.5, 0.0, 8.5]),
+                on_screen_estimate: None,
+                on_screen: None,
+                screen_xy: Some([100, 100]),
+                screen_aabb: None,
+                duplicate_count: None,
+            },
+            EyesightSubject {
+                name: "OreCrusher".into(),
+                entity: Some(2),
+                translation: Some([14.5, 0.0, 7.5]),
+                on_screen_estimate: None,
+                on_screen: None,
+                screen_xy: Some([1949, 801]),
+                screen_aabb: None,
+                duplicate_count: None,
+            },
+        ];
+        let m = match_subjects_for_entity(&subs, "OreCrusher");
+        assert_eq!(m.len(), 1);
+        assert_eq!(m[0].name, "OreCrusher");
+        assert_eq!(m[0].screen_xy, Some([1949, 801]));
     }
 
     #[test]

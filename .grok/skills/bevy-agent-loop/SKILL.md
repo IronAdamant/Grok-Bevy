@@ -16,7 +16,8 @@ This is **not a Bevy editor** — eyesight is a sensory channel for the agent br
 Plan: `docs/AGENT_EYESIGHT_PLAN.md` (schema `grok-bevy.eyesight/v1`).  
 2D+3D sight: `docs/AGENT_SIGHT_2D3D_PLAN.md` + findings `docs/AGENT_SIGHT_2D3D_FINDINGS_2026-07-22.md`.  
 Hardening (shipped): `docs/AGENT_SIGHT_HARDENING_PLAN.md`.  
-Fidelity (shipped): `docs/AGENT_SIGHT_FIDELITY_PLAN.md` + findings `docs/AGENT_SIGHT_FIDELITY_FINDINGS_2026-07-23.md` — complex craft, transparent 2D BG, IF heightfield.
+Fidelity (shipped): `docs/AGENT_SIGHT_FIDELITY_PLAN.md` + findings `docs/AGENT_SIGHT_FIDELITY_FINDINGS_2026-07-23.md` — complex craft, transparent 2D BG, IF heightfield.  
+Workflow (project): `.grok/workflows/agent-sight-dogfood.rhai` — `/agent-sight-dogfood` or `/workflow agent-sight-dogfood` (gates + sequential CD/IF dogfood + packet–pixel skeptic).
 
 ## Pins
 
@@ -46,7 +47,8 @@ Plan: `docs/AGENT_EYESIGHT_PLAN.md` + `docs/AGENT_EYESIGHT_20_20_PLAN.md` + `doc
 16. **Baseline after visual change:** `save_baseline` then `compare_baseline` once per game when iterating assets/env.  
 17. **Sequential BRP:** one game on port 15702 at a time.  
 18. **Transparent 2D BG law:** CD sprites must be opaque subject + fully transparent background — **no purple/magenta square plates**; run `scripts/check_sprite_transparency.py` (true-magenta = 0).  
-19. **Complex 3D craft:** IF drills/belts/machines multi-part silhouettes (not block soup); terrain randomized heightfield with placeable start pocket.
+19. **Complex 3D craft:** IF drills/belts/machines multi-part silhouettes (not block soup); terrain randomized heightfield with placeable start pocket.  
+20. **Entity fovea profile:** always pass `--profile iron-feud` (or `crystal-drift`) to `see entity` / `bevy_see_entity`. Without profile, IF uses ortho2d XY and aims at the wrong pixels after packs/restore.
 
 ## Standard loop (hard requirements)
 

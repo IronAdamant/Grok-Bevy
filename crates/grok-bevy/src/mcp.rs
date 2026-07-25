@@ -701,7 +701,7 @@ fn tool_defs() -> Value {
         },
         {
             "name": "bevy_see_entity",
-            "description": "Agent eyesight A1 true fovea: world→screen crop for named entity (+ zoom ladder). OPEN crop PNGs.",
+            "description": "Agent eyesight A1 true fovea: world→screen crop for named entity (+ zoom ladder). OPEN crop PNGs. Use profile=iron-feud for 3D top-down (XZ) or crystal-drift for 2D ortho — without profile, 3D fovea aims wrong.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -709,6 +709,7 @@ fn tool_defs() -> Value {
                     "target": { "type": "string" },
                     "out_dir": { "type": "string", "default": "." },
                     "name": { "type": "string", "description": "Entity Name to inspect" },
+                    "profile": { "type": "string", "description": "crystal-drift|iron-feud — sets projection + visible half extents" },
                     "screen_x": { "type": "integer" },
                     "screen_y": { "type": "integer" },
                     "half": { "type": "integer", "default": 96 },

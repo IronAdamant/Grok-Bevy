@@ -157,6 +157,9 @@ enum SeeCommands {
         half: u32,
         #[arg(long, default_value = "inspect entity craft")]
         intent: String,
+        /// Prefer profile over raw projection defaults (iron-feud → topdown3d XZ).
+        #[arg(long)]
+        profile: Option<String>,
         #[arg(long, default_value = "ortho2d")]
         projection: String,
         #[arg(long, default_value_t = 640.0)]
@@ -422,13 +425,14 @@ fn cmd_see(cmd: SeeCommands) -> Result<()> {
             screen_y,
             half,
             intent,
+            profile,
             projection,
             visible_half_w,
             visible_half_h,
             diagnostic_bounds,
         } => {
             let client = BrpClient::with_port(port);
-            let opts = SeeOptions {
+            let mut opts = SeeOptions {
                 out_dir,
                 intent,
                 subject_class: "entity".into(),
@@ -436,8 +440,19 @@ fn cmd_see(cmd: SeeCommands) -> Result<()> {
                 visible_half_w,
                 visible_half_h,
                 diagnostic_bounds,
+                profile: profile.clone(),
+                zoom_ladder: true,
                 ..SeeOptions::default()
             };
+            // Profile sets topdown3d + IF half-extents — required for 3D fovea aim.
+            if let Some(ref p) = profile {
+                apply_game_profile(&mut opts, p);
+            }
+            // Explicit projection flag still wins if user passed a non-default string after profile.
+            // (apply_game_profile already set topdown for iron-feud; keep CLI projection if topdown3d.)
+            if projection != "ortho2d" {
+                opts.projection = parse_projection(&projection);
+            }
             let packet = see_entity(&client, &opts, &name, screen_x, screen_y, half)?;
             println!("{}", packet.to_pretty_json()?);
         }
