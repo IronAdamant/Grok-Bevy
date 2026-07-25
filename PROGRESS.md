@@ -274,3 +274,26 @@ Plan: [docs/AGENT_SIGHT_FIDELITY_PLAN.md](docs/AGENT_SIGHT_FIDELITY_PLAN.md).
 - [x] Plan file landed  
 - [x] F0–F6 complete  
 - [x] Findings: [docs/AGENT_SIGHT_FIDELITY_FINDINGS_2026-07-23.md](docs/AGENT_SIGHT_FIDELITY_FINDINGS_2026-07-23.md)
+
+---
+
+## Agent sight trust — done
+
+Trustworthy factory sight: hierarchy/local-space demotion; `see_pack` camera restore; stronger multi-view; packet↔pixel regression (fovea profile already shipped — T0 verifies).
+
+Plan: [docs/AGENT_SIGHT_TRUST_PLAN.md](docs/AGENT_SIGHT_TRUST_PLAN.md).
+
+| Phase | Name | Status |
+|-------|------|--------|
+| **T0** | Verify fovea `--profile` fix + cargo test | **done** |
+| **T1** | Structural child demotion (hierarchy / local-space) | **done** |
+| **T2** | `see_pack` always restores camera | **done** |
+| **T3** | Stronger multi-view (dedicated side path) | **done** |
+| **T4** | Packet↔pixel regression tests + workflow | **done** |
+| **T5** | Live CD + IF / agent-sight-dogfood full | **done** |
+| **T6** | Docs / findings / commits | **done** |
+
+- [x] Plan file landed  
+- [x] T0–T6 complete  
+- [x] Findings: [docs/AGENT_SIGHT_TRUST_FINDINGS_2026-07-25.md](docs/AGENT_SIGHT_TRUST_FINDINGS_2026-07-25.md)  
+- [x] Workflow full PASS (agent-sight-dogfood-3, skeptic green)

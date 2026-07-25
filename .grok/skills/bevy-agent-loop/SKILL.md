@@ -48,7 +48,9 @@ Plan: `docs/AGENT_EYESIGHT_PLAN.md` + `docs/AGENT_EYESIGHT_20_20_PLAN.md` + `doc
 17. **Sequential BRP:** one game on port 15702 at a time.  
 18. **Transparent 2D BG law:** CD sprites must be opaque subject + fully transparent background — **no purple/magenta square plates**; run `scripts/check_sprite_transparency.py` (true-magenta = 0).  
 19. **Complex 3D craft:** IF drills/belts/machines multi-part silhouettes (not block soup); terrain randomized heightfield with placeable start pocket.  
-20. **Entity fovea profile:** always pass `--profile iron-feud` (or `crystal-drift`) to `see entity` / `bevy_see_entity`. Without profile, IF uses ortho2d XY and aims at the wrong pixels after packs/restore.
+20. **Entity fovea profile:** always pass `--profile iron-feud` (or `crystal-drift`) to `see entity` / `bevy_see_entity`. Without profile, IF uses ortho2d XY and aims at the wrong pixels after packs/restore.  
+21. **Pack camera restore (T2):** landscape/water packs restore StrategyCamera after alt/side; notes may include `[restored]`.  
+22. **Structural demotion (T1):** multiparts demoted via parent_entity / co-located heuristics + name fallback; protected top-level Names (OreCrusher, SolarFlareBuoy, …) stay.
 
 ## Standard loop (hard requirements)
 

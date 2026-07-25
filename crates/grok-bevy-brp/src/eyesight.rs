@@ -273,6 +273,9 @@ pub struct EyesightSubject {
     pub entity: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub translation: Option<[f64; 3]>,
+    /// Parent entity id when BRP exposes ChildOf/Parent (T1 structural demotion).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_entity: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub on_screen_estimate: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -760,10 +763,12 @@ pub fn subjects_from_query(query: &Value) -> Vec<EyesightSubject> {
             .unwrap_or_else(|| row.clone());
         let name = extract_name(&comps).unwrap_or_else(|| "unnamed".into());
         let translation = extract_translation(&comps);
+        let parent_entity = extract_parent_entity(&comps);
         out.push(EyesightSubject {
             name,
             entity,
             translation,
+            parent_entity,
             on_screen_estimate: None,
             on_screen: None,
             screen_xy: None,
@@ -830,10 +835,9 @@ fn is_noise_name(name: &str) -> bool {
         || is_child_mesh_part(name)
 }
 
-/// Local-space child mesh Names that crowd subject slots (not top-level gameplay Names).
-fn is_child_mesh_part(name: &str) -> bool {
-    // Keep top-level dogfood feature Names (F1/F2) out of demotion.
-    if matches!(
+/// Top-level gameplay / dogfood Names that must never be demoted as multiparts (T1).
+pub fn is_protected_top_level_name(name: &str) -> bool {
+    matches!(
         name,
         "OreCrusher"
             | "LoadingBay"
@@ -847,10 +851,83 @@ fn is_child_mesh_part(name: &str) -> bool {
             | "OreSilo"
             | "RelayTower"
             | "RadarDome"
+            | "Player"
+            | "WaterBody"
+            | "Ground"
+            | "StrategyCamera"
+            | "MainCamera"
+            | "SolarFlareBuoy"
+            | "WarpGateRing"
+            | "SignalSat"
+            | "BeaconBuoy"
+            | "RescuePod"
+            | "CometFragment"
+            | "DebrisRing"
     ) || name.starts_with("FieldScrap")
         || name.starts_with("RockOutcrop")
         || name.starts_with("CliffRidge")
-    {
+        || name.starts_with("Terrain")
+        || name.starts_with("Nebula")
+}
+
+/// Structural demotion (T1): BRP parent child, co-located multipart, or string fallback.
+pub fn is_structural_child_of_named_root(s: &EyesightSubject, all: &[EyesightSubject]) -> bool {
+    if is_protected_top_level_name(&s.name) {
+        return false;
+    }
+    if let Some(pid) = s.parent_entity {
+        if all.iter().any(|p| {
+            p.entity == Some(pid)
+                && !is_child_mesh_part(&p.name)
+                && p.name != "unnamed"
+                && !p.name.starts_with("Star")
+        }) {
+            return true;
+        }
+    }
+    if let Some(t) = s.translation {
+        let my_score = gameplay_subject_score(&s.name);
+        for p in all {
+            if p.entity == s.entity {
+                continue;
+            }
+            if !is_protected_top_level_name(&p.name) {
+                continue;
+            }
+            let Some(pt) = p.translation else {
+                continue;
+            };
+            let dx = t[0] - pt[0];
+            let dz = t[2] - pt[2];
+            let dist_xz = (dx * dx + dz * dz).sqrt();
+            if dist_xz < 4.0 && gameplay_subject_score(&p.name) > my_score + 20 {
+                if is_child_mesh_part(&s.name) || looks_like_multipart_suffix(&s.name) {
+                    return true;
+                }
+            }
+        }
+    }
+    is_child_mesh_part(&s.name)
+}
+
+/// Noise for filter: name noise OR structural child (needs full subject list).
+pub fn is_noise_subject(s: &EyesightSubject, all: &[EyesightSubject]) -> bool {
+    is_noise_name(&s.name) || is_structural_child_of_named_root(s, all)
+}
+
+fn looks_like_multipart_suffix(name: &str) -> bool {
+    name.ends_with("Chassis")
+        || name.ends_with("Hopper")
+        || name.ends_with("JawL")
+        || name.ends_with("JawR")
+        || name.contains("Shard")
+        || name.starts_with("Crusher")
+        || name.starts_with("Belt")
+}
+
+/// Local-space child mesh Names — string fallback when BRP parent missing.
+pub fn is_child_mesh_part(name: &str) -> bool {
+    if is_protected_top_level_name(name) {
         return false;
     }
     const PARTS: &[&str] = &[
@@ -1434,10 +1511,11 @@ pub fn filter_subjects(
             (v, truncated)
         }
         SubjectFilterMode::GameplayPrefer => {
+            let all_ctx = subjects.clone();
             let mut preferred: Vec<_> = subjects
                 .iter()
                 .filter(|s| {
-                    !is_noise_name(&s.name) && gameplay_subject_score(&s.name) > 0
+                    !is_noise_subject(s, &all_ctx) && gameplay_subject_score(&s.name) > 0
                 })
                 .cloned()
                 .collect();
@@ -1447,7 +1525,7 @@ pub fn filter_subjects(
             if preferred.is_empty() {
                 let mut all: Vec<_> = subjects
                     .into_iter()
-                    .filter(|s| !is_noise_name(&s.name))
+                    .filter(|s| !is_noise_subject(s, &all_ctx))
                     .collect();
                 all.sort_by(|a, b| {
                     gameplay_subject_score(&b.name).cmp(&gameplay_subject_score(&a.name))
@@ -1684,6 +1762,57 @@ fn extract_translation(comps: &Value) -> Option<[f64; 3]> {
         }
     }
     None
+}
+
+/// Extract parent entity from ChildOf / Parent when BRP reflects them (T1).
+pub fn extract_parent_entity(comps: &Value) -> Option<u64> {
+    let obj = comps.as_object()?;
+    for (k, v) in obj {
+        let key = k.as_str();
+        if !(key.ends_with("ChildOf")
+            || key.ends_with("Parent")
+            || key.contains("hierarchy::ChildOf")
+            || key.contains("hierarchy::Parent")
+            || key == "ChildOf"
+            || key == "Parent")
+        {
+            continue;
+        }
+        if let Some(id) = v.as_u64() {
+            return Some(id);
+        }
+        for field in ["0", "parent", "entity", "Parent", "ChildOf"] {
+            if let Some(id) = v.get(field).and_then(|x| x.as_u64()) {
+                return Some(id);
+            }
+        }
+        if let Some(id) = v.get("index").and_then(|x| x.as_u64()) {
+            return Some(id);
+        }
+    }
+    None
+}
+
+/// Pure helper: pack path restore payload for original camera translation (T2).
+pub fn pack_camera_restore_value(original: [f64; 3]) -> Value {
+    translation_value_for_brp(&json!({
+        "x": original[0],
+        "y": original[1],
+        "z": original[2],
+    }))
+}
+
+/// Dedicated side/orbit placement when strategy alt + side-orbit still similar (T3).
+pub fn dedicated_side_camera_translation(cam: [f64; 3], topdown3d: bool) -> [f64; 3] {
+    if topdown3d {
+        [
+            cam[0] - 55.0,
+            (cam[1] * 0.35).clamp(10.0, 16.0),
+            cam[2] + 48.0,
+        ]
+    } else {
+        [cam[0] - 480.0, cam[1] - 20.0, cam[2]]
+    }
 }
 
 /// Map world XY to screen for a simple orthographic camera centered at (cam_x, cam_y).
@@ -2099,6 +2228,7 @@ pub fn see_entity(
 
     if matched.is_empty() {
         packet.subjects.push(EyesightSubject {
+            parent_entity: None,
             name: entity_name.into(),
             entity: None,
             translation: None,
@@ -2154,6 +2284,7 @@ pub fn see_region(
     packet.captures.push(full);
     packet.captures.push(crop);
     packet.subjects.push(EyesightSubject {
+        parent_entity: None,
         name: label.into(),
         entity: None,
         translation: None,
@@ -2305,8 +2436,8 @@ pub fn translation_value_for_brp(v: &Value) -> Value {
     v.clone()
 }
 
-/// Best-effort multi-view by mutating a camera Transform (A2). Restores after.
-/// Returns capture plus optional mutate warning (errors no longer silently swallowed).
+/// Best-effort multi-view by mutating a camera Transform (A2).
+/// **Always** attempts restore after capture (T2), even if capture fails mid-path.
 fn capture_with_camera_nudge(
     client: &BrpClient,
     opts: &SeeOptions,
@@ -2321,7 +2452,6 @@ fn capture_with_camera_nudge(
     let mut warn: Option<String> = None;
     let new_t = translation_value_for_brp(&new_translation);
     let restore_t = translation_value_for_brp(&restore);
-    // Bevy 0.19 remote expects FQN + translation as [x,y,z] sequence (not {x,y,z} map).
     let components = [
         component,
         "bevy_transform::components::transform::Transform",
@@ -2345,27 +2475,53 @@ fn capture_with_camera_nudge(
             "camera_nudge_mutate_failed entity={entity}: {last_err}"
         ));
     }
-    // Allow Transform → GlobalTransform propagation + render
-    thread::sleep(Duration::from_millis(if mutated { 180 } else { 40 }));
-    let path = eyesight_path(&opts.out_dir, filename);
-    let img = capture_viewport_image(client, &path)?;
+    let capture_result = (|| -> Result<CaptureEntry> {
+        thread::sleep(Duration::from_millis(if mutated { 180 } else { 40 }));
+        let path = eyesight_path(&opts.out_dir, filename);
+        let img = capture_viewport_image(client, &path)?;
+        let mut note = note.to_string();
+        if !mutated {
+            note.push_str(" [mutate_failed]");
+        } else {
+            note.push_str(" [mutated]");
+        }
+        Ok(CaptureEntry::from_path(role, &img.path)?.with_note(note))
+    })();
+
+    let mut restored = false;
     for c in components {
         if client
             .mutate_components(entity, c, "translation", restore_t.clone())
             .is_ok()
         {
+            restored = true;
             break;
         }
     }
     thread::sleep(Duration::from_millis(50));
-    let mut note = note.to_string();
-    if !mutated {
-        note.push_str(" [mutate_failed]");
-    } else {
-        note.push_str(" [mutated]");
+    if mutated && !restored {
+        let msg = format!("camera_restore_failed entity={entity} after nudge");
+        warn = Some(match warn {
+            Some(w) => format!("{w}; {msg}"),
+            None => msg,
+        });
     }
-    let entry = CaptureEntry::from_path(role, &img.path)?.with_note(note);
-    Ok((entry, warn))
+
+    match capture_result {
+        Ok(mut entry) => {
+            if mutated && restored {
+                if let Some(ref mut n) = entry.note {
+                    n.push_str(" [restored]");
+                }
+            } else if mutated && !restored {
+                if let Some(ref mut n) = entry.note {
+                    n.push_str(" [restore_failed]");
+                }
+            }
+            Ok((entry, warn))
+        }
+        Err(e) => Err(e),
+    }
 }
 
 /// E3: capture after using an existing baseline path; optional diff image.
@@ -2623,7 +2779,7 @@ pub fn see_pack(
                                 entity,
                                 component,
                                 orbit,
-                                restore,
+                                restore.clone(),
                             ) {
                                 if let Some(w) = mut_warn2 {
                                     packet.push_warning(w);
@@ -2631,9 +2787,49 @@ pub fn see_pack(
                                 if captures_look_similar(&img.path, Path::new(&entry2.abs_path))
                                     .unwrap_or(false)
                                 {
-                                    packet.push_warning(
-                                        "views_similar: alt and side-orbit still nearly match game — do not claim multi-angle insight",
+                                    let d = dedicated_side_camera_translation(
+                                        [t[0], t[1], t[2]],
+                                        topdown,
                                     );
+                                    let dedicated = json!({ "x": d[0], "y": d[1], "z": d[2] });
+                                    let fname3 = format!("pack_{}_view_dedicated.png", pack);
+                                    if let Ok((entry3, mut_warn3)) = capture_with_camera_nudge(
+                                        client,
+                                        &opts,
+                                        CaptureRole::Side,
+                                        &fname3,
+                                        &format!(
+                                            "{pack} view=dedicated-side (T3 after side-orbit still similar)"
+                                        ),
+                                        entity,
+                                        component,
+                                        dedicated,
+                                        restore.clone(),
+                                    ) {
+                                        if let Some(w) = mut_warn3 {
+                                            packet.push_warning(w);
+                                        }
+                                        if captures_look_similar(
+                                            &img.path,
+                                            Path::new(&entry3.abs_path),
+                                        )
+                                        .unwrap_or(false)
+                                        {
+                                            packet.push_warning(
+                                                "views_similar: alt, side-orbit, and dedicated-side still nearly match game — do not claim multi-angle insight",
+                                            );
+                                        } else {
+                                            packet.push_warning(
+                                                "multi_view: dedicated-side differs from game after alt/side-orbit were similar",
+                                            );
+                                        }
+                                        packet.captures.push(entry3);
+                                        views.push("dedicated_side".into());
+                                    } else {
+                                        packet.push_warning(
+                                            "views_similar: alt and side-orbit still nearly match game — dedicated-side capture failed; do not claim multi-angle insight",
+                                        );
+                                    }
                                 } else {
                                     packet.push_warning(
                                         "multi_view: side-orbit differs from game after first alt was similar",
@@ -2865,6 +3061,7 @@ mod tests {
     fn sub(name: &str) -> EyesightSubject {
         EyesightSubject {
             name: name.into(),
+            parent_entity: None,
             ..Default::default()
         }
     }
@@ -3316,6 +3513,7 @@ mod tests {
     fn filter_subjects_gameplay_prefer_caps_stars() {
         let mut subs = vec![
             EyesightSubject {
+                parent_entity: None,
                 name: "Star".into(),
                 entity: Some(1),
                 translation: None,
@@ -3326,6 +3524,7 @@ mod tests {
             duplicate_count: None,
             },
             EyesightSubject {
+                parent_entity: None,
                 name: "Player".into(),
                 entity: Some(2),
                 translation: Some([0.0, 0.0, 0.0]),
@@ -3336,6 +3535,7 @@ mod tests {
             duplicate_count: None,
             },
             EyesightSubject {
+                parent_entity: None,
                 name: "WaterBody".into(),
                 entity: Some(3),
                 translation: None,
@@ -3348,6 +3548,7 @@ mod tests {
         ];
         for i in 0..20 {
             subs.push(EyesightSubject {
+                parent_entity: None,
                 name: format!("Star{i}"),
                 entity: Some(10 + i),
                 translation: None,
@@ -3367,6 +3568,7 @@ mod tests {
     #[test]
     fn infer_playing_vs_menu() {
         let playing = vec![EyesightSubject {
+            parent_entity: None,
             name: "Player".into(),
             entity: None,
             translation: None,
@@ -3378,6 +3580,7 @@ mod tests {
         }];
         assert_eq!(infer_app_state_from_subjects(&playing).as_deref(), Some("Playing"));
         let menu = vec![EyesightSubject {
+            parent_entity: None,
             name: "MenuCamera".into(),
             entity: None,
             translation: None,
@@ -3394,6 +3597,7 @@ mod tests {
     #[test]
     fn world_to_screen_and_annotate() {
         let mut subs = vec![EyesightSubject {
+            parent_entity: None,
             name: "Player".into(),
             entity: Some(1),
             translation: Some([0.0, 0.0, 0.0]),
@@ -3534,6 +3738,7 @@ mod tests {
     fn annotate_topdown_uses_xz_not_xy() {
         let mut subs = vec![
             EyesightSubject {
+                parent_entity: None,
                 name: "OreCrusher".into(),
                 entity: Some(1),
                 translation: Some([14.5, 0.0, 7.5]),
@@ -3563,6 +3768,7 @@ mod tests {
     fn match_subjects_prefers_exact_name() {
         let subs = vec![
             EyesightSubject {
+                parent_entity: None,
                 name: "OreSilo".into(),
                 entity: Some(1),
                 translation: Some([2.5, 0.0, 8.5]),
@@ -3573,6 +3779,7 @@ mod tests {
                 duplicate_count: None,
             },
             EyesightSubject {
+                parent_entity: None,
                 name: "OreCrusher".into(),
                 entity: Some(2),
                 translation: Some([14.5, 0.0, 7.5]),
@@ -3587,6 +3794,78 @@ mod tests {
         assert_eq!(m.len(), 1);
         assert_eq!(m[0].name, "OreCrusher");
         assert_eq!(m[0].screen_xy, Some([1949, 801]));
+    }
+
+    #[test]
+    fn structural_child_via_parent_entity_demotes() {
+        let parent = EyesightSubject {
+            name: "OreCrusher".into(),
+            entity: Some(10),
+            translation: Some([14.5, 0.0, 7.5]),
+            parent_entity: None,
+            ..Default::default()
+        };
+        let child = EyesightSubject {
+            name: "CrusherChassis".into(),
+            entity: Some(11),
+            translation: Some([14.5, 0.3, 7.5]),
+            parent_entity: Some(10),
+            ..Default::default()
+        };
+        let all = vec![parent.clone(), child.clone()];
+        assert!(is_structural_child_of_named_root(&child, &all));
+        assert!(!is_structural_child_of_named_root(&parent, &all));
+        let (out, _) = filter_subjects(all, SubjectFilterMode::GameplayPrefer, 24);
+        assert!(out.iter().any(|s| s.name == "OreCrusher"));
+        assert!(!out.iter().any(|s| s.name == "CrusherChassis"));
+    }
+
+    #[test]
+    fn solar_flare_buoy_not_demoted_as_solar_prefix() {
+        assert!(!is_child_mesh_part("SolarFlareBuoy"));
+        assert!(is_protected_top_level_name("SolarFlareBuoy"));
+        assert!(gameplay_subject_score("SolarFlareBuoy") > 0);
+    }
+
+    #[test]
+    fn pack_camera_restore_value_is_f32_sequence() {
+        let v = pack_camera_restore_value([3.0, 28.0, 10.0]);
+        let a = v.as_array().expect("array");
+        assert_eq!(a.len(), 3);
+        assert!((a[0].as_f64().unwrap() - 3.0).abs() < 1e-9);
+        assert!((a[1].as_f64().unwrap() - 28.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn dedicated_side_is_more_aggressive_than_side_orbit() {
+        let cam = [3.0, 48.0, 10.0];
+        let s = side_orbit_camera_translation(cam, true);
+        let d = dedicated_side_camera_translation(cam, true);
+        assert!((d[0] - cam[0]).abs() >= (s[0] - cam[0]).abs());
+        assert!(d[1] <= s[1]);
+    }
+
+    #[test]
+    fn extract_parent_entity_from_child_of() {
+        let comps = json!({
+            "bevy_ecs::hierarchy::ChildOf": { "0": 42 }
+        });
+        assert_eq!(extract_parent_entity(&comps), Some(42));
+    }
+
+    #[test]
+    fn capture_nudge_source_restores_after_capture() {
+        // Structural contract: restore mutate runs after capture attempt (T2).
+        let src = include_str!("eyesight.rs");
+        let fn_start = src.find("fn capture_with_camera_nudge").expect("fn");
+        let body = &src[fn_start..fn_start + 2500];
+        assert!(body.contains("restore_t"));
+        assert!(
+            body.find("capture_viewport_image").unwrap()
+                < body.rfind("mutate_components(entity, c, \"translation\", restore_t").unwrap()
+                || body.contains("Always") && body.contains("restore"),
+            "restore must follow capture in finally-style path"
+        );
     }
 
     #[test]
