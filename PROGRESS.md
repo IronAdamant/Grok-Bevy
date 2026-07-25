@@ -322,3 +322,25 @@ Plan: [docs/AGENT_SIGHT_SOFT_PLAN.md](docs/AGENT_SIGHT_SOFT_PLAN.md).
 - [x] Findings: [docs/AGENT_SIGHT_SOFT_FINDINGS_2026-07-25.md](docs/AGENT_SIGHT_SOFT_FINDINGS_2026-07-25.md)  
 - [x] CI matrix: [docs/AGENT_SIGHT_CI_MATRIX.md](docs/AGENT_SIGHT_CI_MATRIX.md)  
 - [x] Workflow full PASS (agent-sight-dogfood-4)
+
+---
+
+## Agent sight still soft — planned
+
+Soft E0–E7 shipped, but residual soft edges need **re-review + investigate** (not closed forever). Includes S3 skeptic gap (dark fovea warning theater). Closeout requires **`/agent-sight-dogfood` mode=full** (workflow default is already `full`).
+
+Plan: [docs/AGENT_SIGHT_STILL_SOFT_PLAN.md](docs/AGENT_SIGHT_STILL_SOFT_PLAN.md).
+
+| Phase | Name | Status |
+|-------|------|--------|
+| **SS0** | Baseline + re-open soft register | **planned** |
+| **SS1** | Hierarchy (review + investigate) | **planned** |
+| **SS2** | Multi-view (review + investigate) | **planned** |
+| **SS3** | Craft in fovea / skeptic gap | **planned** |
+| **SS4** | CD env pack (review + investigate) | **planned** |
+| **SS5** | Not silent CI forever | **planned** |
+| **SS6** | `/agent-sight-dogfood` **mode=full** | **planned** |
+| **SS7** | Findings / docs / commits | **planned** |
+
+- [x] Plan file landed  
+- [ ] SS0–SS7 complete

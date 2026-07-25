@@ -1,6 +1,7 @@
 # Agent Sight Soft Edges Plan — hierarchy, multi-view, fovea craft, CD env packs, CI
 
-**Status:** complete (E0–E7 shipped 2026-07-25)  
+**Status:** complete (E0–E7 shipped 2026-07-25) — residual soft re-opened in [AGENT_SIGHT_STILL_SOFT_PLAN.md](AGENT_SIGHT_STILL_SOFT_PLAN.md)  
+
 **Audience:** implementing agent under `/goal`; human may be away for a long session  
 **Identity:** Grok-Bevy is **agent assistant infrastructure**, not a Bevy editor.  
 **Focus:** **review and investigate** residual soft spots after Trust T0–T6, then fix what investigation proves is platform-owned. Close with a **mandatory full** [`agent-sight-dogfood`](../.grok/workflows/agent-sight-dogfood.rhai) run (`mode=full`) so the version is proven green end-to-end.
@@ -292,5 +293,6 @@ Rebuild MCP after platform changes. Taste/design human-owned.
 
 | Date | Change |
 |------|--------|
+| 2026-07-25 | S3 skeptic gap closed: craft luma + mean `fovea_dark`; live OreCrusher packet proof; MCP reinstall |
 | 2026-07-25 | E0–E7 complete: S1 ChildOf merge, S3 fovea_dark, S4 env_2d retry, full workflow PASS |
 | 2026-07-25 | Initial soft-edges plan: S1–S5 review/investigate; E6 full workflow mandatory |

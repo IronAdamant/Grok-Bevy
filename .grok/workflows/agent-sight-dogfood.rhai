@@ -2,6 +2,8 @@
 // Project-specific: platform gates and packet↔pixel honesty first; dogfood second.
 // Sequential BRP 15702 only. No livestream, editor, or taste scoring.
 // P0 (2026-07-25): skip_install must not reinstall; IF restore camera before see entity.
+// Closeout bar for soft / still-soft / trust sight plans: ALWAYS mode=full (default below).
+// mode=gates is debug-only — do not change the default to gates.
 
 let meta = #{
     name: "agent-sight-dogfood",

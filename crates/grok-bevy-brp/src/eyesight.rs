@@ -1220,12 +1220,47 @@ pub const VIEWS_SIMILAR_MEAN_ABS_MAX: f32 = 0.02;
 
 /// Minimum non-black fraction for a "readable" full-frame Playing capture (CD env).
 pub const FULL_FRAME_NONBLACK_MIN: f32 = 0.08;
-/// Entity fovea crop: below this nonblack fraction → `fovea_dark` warning (S3).
-pub const FOVEA_CROP_NONBLACK_MIN: f32 = 0.05;
+/// Entity fovea crop: craft-readable nonblack fraction (with [`FOVEA_CRAFT_LUMA_MIN`]).
+/// Deep-shadow OreCrusher crops measure ~0.28 at thr=30 but still unreadable — use
+/// stricter craft luma + mean gate (S3 skeptic gap).
+pub const FOVEA_CROP_NONBLACK_MIN: f32 = 0.35;
+/// Luma threshold for "craft-visible" pixels in fovea (stricter than env nonblack thr 30).
+pub const FOVEA_CRAFT_LUMA_MIN: u8 = 48;
+/// Mean Rec.601 luma below this → fovea_dark (deep shadow / underexposed crop).
+pub const FOVEA_CROP_MEAN_LUMA_MIN: f32 = 50.0;
 
 /// True-magenta plate gate: sprites must have zero such pixels.
 /// Strict: R>200, B>200, G<40 (excludes purple craft with moderate G).
 pub const TRUE_MAGENTA_MAX_ON_SPRITE: u32 = 0;
+
+/// Mean Rec.601 luma 0..255 over opaque-ish pixels (all pixels if no alpha gate).
+pub fn png_mean_luma(png_bytes: &[u8]) -> Result<f32> {
+    let img = RgbaImage::decode_png(png_bytes)?;
+    let n = (img.width as usize).saturating_mul(img.height as usize);
+    if n == 0 {
+        return Ok(0.0);
+    }
+    let mut sum = 0u64;
+    for i in (0..img.pixels.len()).step_by(4) {
+        let r = img.pixels[i] as u64;
+        let g = img.pixels[i + 1] as u64;
+        let b = img.pixels[i + 2] as u64;
+        sum += (54 * r + 183 * g + 19 * b) / 256;
+    }
+    Ok(sum as f32 / n as f32)
+}
+
+/// Pure S3 gate: fovea crop too dark/shadowed to judge craft (even if aim is correct).
+/// Uses craft luma fraction **and** mean luma so thr=30 "0.28 nonblack" shadow still warns.
+pub fn fovea_crop_is_too_dark(png_bytes: &[u8]) -> Result<bool> {
+    let frac = png_nonblack_fraction(png_bytes, FOVEA_CRAFT_LUMA_MIN)?;
+    let mean = png_mean_luma(png_bytes)?;
+    Ok(frac < FOVEA_CROP_NONBLACK_MIN || mean < FOVEA_CROP_MEAN_LUMA_MIN)
+}
+
+pub fn path_fovea_crop_is_too_dark(path: impl AsRef<std::path::Path>) -> Result<bool> {
+    fovea_crop_is_too_dark(&fs::read(path.as_ref())?)
+}
 
 /// Fraction of pixels that are not near-black (luma > threshold).
 /// Drives full-frame env readability gates (Names ≠ pixels).
@@ -2284,10 +2319,12 @@ pub fn see_entity(
         ));
     }
     // S3: dark/unreadable fovea — aim may be correct but craft not judgeable
-    if let Ok(frac) = path_nonblack_fraction(&crop_path, 30) {
-        if frac < FOVEA_CROP_NONBLACK_MIN {
+    if let Ok(bytes) = fs::read(&crop_path) {
+        if fovea_crop_is_too_dark(&bytes).unwrap_or(false) {
+            let frac = png_nonblack_fraction(&bytes, FOVEA_CRAFT_LUMA_MIN).unwrap_or(0.0);
+            let mean = png_mean_luma(&bytes).unwrap_or(0.0);
             packet.push_warning(format!(
-                "fovea_dark: crop nonblack={frac:.3} (min {FOVEA_CROP_NONBLACK_MIN}) for '{entity_name}' @ ({cx},{cy}) — do not claim craft identity from this crop alone"
+                "fovea_dark: crop craft_nonblack={frac:.3} (min {FOVEA_CROP_NONBLACK_MIN} @ luma>={FOVEA_CRAFT_LUMA_MIN}) mean_luma={mean:.1} (min {FOVEA_CROP_MEAN_LUMA_MIN}) for '{entity_name}' @ ({cx},{cy}) — do not claim craft identity from this crop alone"
             ));
         }
     }
@@ -4017,8 +4054,48 @@ mod tests {
 
     #[test]
     fn fovea_crop_nonblack_min_is_strict() {
-        assert!(FOVEA_CROP_NONBLACK_MIN > 0.0);
-        assert!(FOVEA_CROP_NONBLACK_MIN < FULL_FRAME_NONBLACK_MIN);
+        assert!(FOVEA_CROP_NONBLACK_MIN > FULL_FRAME_NONBLACK_MIN);
+        assert!(FOVEA_CRAFT_LUMA_MIN > 30);
+        assert!(FOVEA_CROP_MEAN_LUMA_MIN > 30.0);
+    }
+
+    /// S3 real path: shadow/deep-green crops must trip fovea_dark; bright craft must not.
+    #[test]
+    fn fovea_crop_is_too_dark_on_shadow_fixture() {
+        // Matches live OreCrusher deep-shadow profile: mean luma ~31, thr=30 nonblack ~0.28
+        // would NOT warn under the old min=0.05 @ thr=30.
+        let shadow = solid_png(48, 48, [28, 32, 28, 255]);
+        let frac30 = png_nonblack_fraction(&shadow, 30).unwrap();
+        // solid 28 luma is below thr 30 → frac0; mix some brighter shadow pixels
+        let mut img = RgbaImage::decode_png(&shadow).unwrap();
+        // paint ~28% of pixels at luma ~40 (above thr 30, below craft thr 48)
+        let step = 4usize;
+        for y in (0..img.height as usize).step_by(step) {
+            for x in 0..(img.width as usize / 4) {
+                let i = (y * img.width as usize + x) * 4;
+                img.pixels[i] = 40;
+                img.pixels[i + 1] = 42;
+                img.pixels[i + 2] = 38;
+            }
+        }
+        let mixed = img.encode_png().unwrap();
+        let frac30m = png_nonblack_fraction(&mixed, 30).unwrap();
+        assert!(
+            frac30m > 0.05,
+            "fixture must exceed old thr=30 min=0.05 gate, got {frac30m}"
+        );
+        assert!(
+            fovea_crop_is_too_dark(&mixed).unwrap(),
+            "shadow/mixed crop must warn fovea_dark (mean low / craft nonblack low)"
+        );
+        let bright = solid_png(48, 48, [120, 110, 90, 255]);
+        assert!(
+            !fovea_crop_is_too_dark(&bright).unwrap(),
+            "well-lit crop must not warn fovea_dark"
+        );
+        // Mean luma alone catches pure near-black
+        assert!(fovea_crop_is_too_dark(&solid_png(16, 16, [10, 10, 10, 255])).unwrap());
+        let _ = frac30;
     }
 
     #[test]

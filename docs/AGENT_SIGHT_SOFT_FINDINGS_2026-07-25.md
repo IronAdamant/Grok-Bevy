@@ -26,9 +26,10 @@
 
 | | |
 |--|--|
-| **Probe** | Aim can be correct (OreCrusher ~1949,801 topdown3d) while crop is deep shadow. |
-| **Fix** | After fovea crop, `path_nonblack_fraction` vs `FOVEA_CROP_NONBLACK_MIN` (0.05) → warning `fovea_dark: … do not claim craft identity from this crop alone`. |
-| **Evidence** | Unit `fovea_crop_nonblack_min_is_strict`; live via workflow entity step. |
+| **Probe** | Aim can be correct (OreCrusher ~1949,801 topdown3d) while crop is deep shadow. Old gate thr=30 + `FOVEA_CROP_NONBLACK_MIN=0.05` **missed** live shadow crops (thr30 nonblack ~0.25–0.28, mean ~31–35) — skeptic correctly rejected “warned” claims without packet proof. |
+| **Fix** | `fovea_crop_is_too_dark`: craft nonblack @ `FOVEA_CRAFT_LUMA_MIN=48` with min **0.35**, **or** mean Rec.601 luma &lt; `FOVEA_CROP_MEAN_LUMA_MIN=50`. `see_entity` pushes `fovea_dark: crop craft_nonblack=… mean_luma=…`. |
+| **Unit** | `fovea_crop_is_too_dark_on_shadow_fixture` — mixed shadow PNG that would pass old thr30 min=0.05 but **must** trip new gate; bright craft must not. |
+| **Live packet proof** | After MCP rebuild: `see entity --name OreCrusher --profile iron-feud` → warnings: `fovea_dark: crop craft_nonblack=0.254 (min 0.35 @ luma>=48) mean_luma=34.6 (min 50) for 'OreCrusher' @ (1949,801) …`. Packet + crop under goal `{SCRATCH}/entity_OreCrusher_packet.json` and `entity_OreCrusher_crop.png`. |
 
 ## S4 CD env_2d
 
@@ -62,5 +63,8 @@ Evidence: `{SCRATCH}/workflow-soft-full-report.md`, `workflow-soft-full.log`, `g
 
 - Games without BRP ChildOf still use string/co-located demotion (merge path no-ops).
 - True multi-view still needs game-side secondary active camera for free parallax without strategy-cam nudge.
-- Dark fovea under shadow — **warned** (`fovea_dark`), not claimed as craft-ok.
+- Dark fovea under shadow is **warned** (`fovea_dark` with craft luma + mean) — craft identity not claimed from unreadable crops. Improving IF lighting/silhouette is game-side, not a false “craft ok”.
 - CD env_2d may still warn env_2d_dark on pure-black space (gate vs soft nebulas); composition not overclaimed.
+- GH unit CI ≠ live sight alone — full `/agent-sight-dogfood` `mode=full` remains the live bar ([AGENT_SIGHT_CI_MATRIX.md](AGENT_SIGHT_CI_MATRIX.md)).
+
+Optional longer-horizon re-review register (not required for soft E0–E7 closeout): [AGENT_SIGHT_STILL_SOFT_PLAN.md](AGENT_SIGHT_STILL_SOFT_PLAN.md).

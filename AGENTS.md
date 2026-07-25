@@ -65,3 +65,5 @@ The sample app is an **integration fixture** for doctor/BRP/capture CI — not a
 - Agent sight **fidelity** (shipped): [docs/AGENT_SIGHT_FIDELITY_PLAN.md](docs/AGENT_SIGHT_FIDELITY_PLAN.md) — Tier 1–3; CD CargoPod; IF OreCrusher + heightfield; findings [docs/AGENT_SIGHT_FIDELITY_FINDINGS_2026-07-23.md](docs/AGENT_SIGHT_FIDELITY_FINDINGS_2026-07-23.md)  
 - Agent sight **trust** (shipped): [docs/AGENT_SIGHT_TRUST_PLAN.md](docs/AGENT_SIGHT_TRUST_PLAN.md) — structural demotion, pack restore, multi-view; findings [docs/AGENT_SIGHT_TRUST_FINDINGS_2026-07-25.md](docs/AGENT_SIGHT_TRUST_FINDINGS_2026-07-25.md)  
 - Agent sight **soft edges** (shipped): [docs/AGENT_SIGHT_SOFT_PLAN.md](docs/AGENT_SIGHT_SOFT_PLAN.md) — ChildOf merge, fovea_dark, env_2d retry, CI matrix; findings [docs/AGENT_SIGHT_SOFT_FINDINGS_2026-07-25.md](docs/AGENT_SIGHT_SOFT_FINDINGS_2026-07-25.md)  
+- Agent sight **still soft** (`/goal`): [docs/AGENT_SIGHT_STILL_SOFT_PLAN.md](docs/AGENT_SIGHT_STILL_SOFT_PLAN.md) — re-review hierarchy, multi-view, craft-in-fovea, CD env pack, non-silent CI; closeout **`/agent-sight-dogfood` mode=full** only  
+

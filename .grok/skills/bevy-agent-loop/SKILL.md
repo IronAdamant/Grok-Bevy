@@ -17,7 +17,8 @@ Plan: `docs/AGENT_EYESIGHT_PLAN.md` (schema `grok-bevy.eyesight/v1`).
 2D+3D sight: `docs/AGENT_SIGHT_2D3D_PLAN.md` + findings `docs/AGENT_SIGHT_2D3D_FINDINGS_2026-07-22.md`.  
 Hardening (shipped): `docs/AGENT_SIGHT_HARDENING_PLAN.md`.  
 Fidelity (shipped): `docs/AGENT_SIGHT_FIDELITY_PLAN.md` + findings `docs/AGENT_SIGHT_FIDELITY_FINDINGS_2026-07-23.md` — complex craft, transparent 2D BG, IF heightfield.  
-Workflow (project): `.grok/workflows/agent-sight-dogfood.rhai` — `/agent-sight-dogfood` or `/workflow agent-sight-dogfood` (gates + sequential CD/IF dogfood + packet–pixel skeptic).
+Still soft (active residual): `docs/AGENT_SIGHT_STILL_SOFT_PLAN.md` — hierarchy, multi-view, craft-in-fovea, CD env pack, non-silent CI; closeout **mode=full** only.  
+Workflow (project): `.grok/workflows/agent-sight-dogfood.rhai` — `/agent-sight-dogfood` or `/workflow agent-sight-dogfood` (**default mode=full**; gates + sequential CD/IF dogfood + packet–pixel skeptic).
 
 ## Pins
 
@@ -52,9 +53,9 @@ Plan: `docs/AGENT_EYESIGHT_PLAN.md` + `docs/AGENT_EYESIGHT_20_20_PLAN.md` + `doc
 21. **Pack camera restore (T2):** landscape/water packs restore StrategyCamera after alt/side; notes may include `[restored]`.  
 22. **Structural demotion (T1):** multiparts demoted via parent_entity / co-located heuristics + name fallback; protected top-level Names (OreCrusher, SolarFlareBuoy, …) stay.  
 23. **ChildOf merge (S1):** `query_all_subjects` merges `bevy_ecs::hierarchy::ChildOf` from a second BRP query (AND multi-query returns empty).  
-24. **fovea_dark (S3):** low nonblack on entity crop → warning; do not claim craft from black fovea.  
+24. **fovea_dark (S3/SS3):** unreadable entity crop → warning (craft luma + mean; thr30-only is insufficient); do not claim craft from dark fovea.  
 25. **env_2d (S4):** wait env subjects + one dark-frame retry; `env_2d_dark` if still black.  
-26. **Live bar:** full `/agent-sight-dogfood` `mode=full` (see `docs/AGENT_SIGHT_CI_MATRIX.md`).
+26. **Live bar:** full `/agent-sight-dogfood` `mode=full` only (see `docs/AGENT_SIGHT_CI_MATRIX.md`); GH unit CI ≠ sight green forever.
 
 ## Standard loop (hard requirements)
 
