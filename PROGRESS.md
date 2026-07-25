@@ -297,3 +297,28 @@ Plan: [docs/AGENT_SIGHT_TRUST_PLAN.md](docs/AGENT_SIGHT_TRUST_PLAN.md).
 - [x] T0–T6 complete  
 - [x] Findings: [docs/AGENT_SIGHT_TRUST_FINDINGS_2026-07-25.md](docs/AGENT_SIGHT_TRUST_FINDINGS_2026-07-25.md)  
 - [x] Workflow full PASS (agent-sight-dogfood-3, skeptic green)
+
+---
+
+## Agent sight soft edges — done
+
+Residual soft spots after trust: hierarchy BRP, multi-view camera, fovea craft readability, CD env_2d packs, non-silent CI. Closeout requires **workflow mode=full**.
+
+Plan: [docs/AGENT_SIGHT_SOFT_PLAN.md](docs/AGENT_SIGHT_SOFT_PLAN.md).
+
+| Phase | Name | Status |
+|-------|------|--------|
+| **E0** | Baseline tests + soft evidence | **done** |
+| **E1** | Hierarchy (S1) ChildOf second-query merge | **done** |
+| **E2** | Multi-view (S2) dedicated-view helper + honest nudge path | **done** |
+| **E3** | Fovea craft (S3) `fovea_dark` warning | **done** |
+| **E4** | CD env_2d (S4) wait + recapture | **done** |
+| **E5** | CI matrix doc | **done** |
+| **E6** | `/agent-sight-dogfood` **mode=full** PASS | **done** |
+| **E7** | Findings / docs / commits | **done** |
+
+- [x] Plan file landed  
+- [x] E0–E7 complete  
+- [x] Findings: [docs/AGENT_SIGHT_SOFT_FINDINGS_2026-07-25.md](docs/AGENT_SIGHT_SOFT_FINDINGS_2026-07-25.md)  
+- [x] CI matrix: [docs/AGENT_SIGHT_CI_MATRIX.md](docs/AGENT_SIGHT_CI_MATRIX.md)  
+- [x] Workflow full PASS (agent-sight-dogfood-4)

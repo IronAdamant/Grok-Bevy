@@ -55,4 +55,5 @@ Agent sight **hardening** (H0–H6 shipped): [AGENT_SIGHT_HARDENING_PLAN.md](AGE
 Agent sight **fidelity** (F0–F6 shipped): [AGENT_SIGHT_FIDELITY_PLAN.md](AGENT_SIGHT_FIDELITY_PLAN.md) — Tier 1–3; CD CargoPod + transparent sprites; IF OreCrusher + multi-part craft + heightfield; findings [AGENT_SIGHT_FIDELITY_FINDINGS_2026-07-23.md](AGENT_SIGHT_FIDELITY_FINDINGS_2026-07-23.md).  
 Agent sight **workflow**: `.grok/workflows/agent-sight-dogfood.rhai` — platform gates + sequential CD/IF dogfood + skeptic (`/agent-sight-dogfood`).  
 Agent sight **trust** (T0–T6 shipped): [AGENT_SIGHT_TRUST_PLAN.md](AGENT_SIGHT_TRUST_PLAN.md) — structural demotion, pack restore, dedicated multi-view; findings [AGENT_SIGHT_TRUST_FINDINGS_2026-07-25.md](AGENT_SIGHT_TRUST_FINDINGS_2026-07-25.md).  
+Agent sight **soft edges** (E0–E7 shipped): [AGENT_SIGHT_SOFT_PLAN.md](AGENT_SIGHT_SOFT_PLAN.md) — ChildOf merge, fovea_dark, env_2d retry, CI matrix; findings [AGENT_SIGHT_SOFT_FINDINGS_2026-07-25.md](AGENT_SIGHT_SOFT_FINDINGS_2026-07-25.md); full workflow bar.  
 Session plan detail: maintained in agent sessions; this file is the **durable product roadmap**.

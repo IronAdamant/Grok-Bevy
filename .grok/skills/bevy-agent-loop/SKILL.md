@@ -50,7 +50,11 @@ Plan: `docs/AGENT_EYESIGHT_PLAN.md` + `docs/AGENT_EYESIGHT_20_20_PLAN.md` + `doc
 19. **Complex 3D craft:** IF drills/belts/machines multi-part silhouettes (not block soup); terrain randomized heightfield with placeable start pocket.  
 20. **Entity fovea profile:** always pass `--profile iron-feud` (or `crystal-drift`) to `see entity` / `bevy_see_entity`. Without profile, IF uses ortho2d XY and aims at the wrong pixels after packs/restore.  
 21. **Pack camera restore (T2):** landscape/water packs restore StrategyCamera after alt/side; notes may include `[restored]`.  
-22. **Structural demotion (T1):** multiparts demoted via parent_entity / co-located heuristics + name fallback; protected top-level Names (OreCrusher, SolarFlareBuoy, …) stay.
+22. **Structural demotion (T1):** multiparts demoted via parent_entity / co-located heuristics + name fallback; protected top-level Names (OreCrusher, SolarFlareBuoy, …) stay.  
+23. **ChildOf merge (S1):** `query_all_subjects` merges `bevy_ecs::hierarchy::ChildOf` from a second BRP query (AND multi-query returns empty).  
+24. **fovea_dark (S3):** low nonblack on entity crop → warning; do not claim craft from black fovea.  
+25. **env_2d (S4):** wait env subjects + one dark-frame retry; `env_2d_dark` if still black.  
+26. **Live bar:** full `/agent-sight-dogfood` `mode=full` (see `docs/AGENT_SIGHT_CI_MATRIX.md`).
 
 ## Standard loop (hard requirements)
 

@@ -1220,6 +1220,8 @@ pub const VIEWS_SIMILAR_MEAN_ABS_MAX: f32 = 0.02;
 
 /// Minimum non-black fraction for a "readable" full-frame Playing capture (CD env).
 pub const FULL_FRAME_NONBLACK_MIN: f32 = 0.08;
+/// Entity fovea crop: below this nonblack fraction → `fovea_dark` warning (S3).
+pub const FOVEA_CROP_NONBLACK_MIN: f32 = 0.05;
 
 /// True-magenta plate gate: sprites must have zero such pixels.
 /// Strict: R>200, B>200, G<40 (excludes purple craft with moderate G).
@@ -1288,6 +1290,27 @@ pub fn captures_look_similar(path_a: &Path, path_b: &Path) -> Result<bool> {
     };
     let score = mean_abs_diff(&a, &b)?;
     Ok(score < VIEWS_SIMILAR_MEAN_ABS_MAX)
+}
+
+/// Prefer a pre-placed secondary camera Name if present (S2 multi-view upgrade path).
+/// Returns entity id + translation when a dedicated side view camera exists in subjects.
+pub fn find_dedicated_view_camera(
+    subjects: &[EyesightSubject],
+) -> Option<(u64, [f64; 3])> {
+    const NAMES: &[&str] = &[
+        "AgentSightSideCamera",
+        "SideCamera",
+        "SightSideCamera",
+        "MultiViewCamera",
+    ];
+    for prefer in NAMES {
+        if let Some(s) = subjects.iter().find(|s| s.name == *prefer) {
+            if let (Some(e), Some(t)) = (s.entity, s.translation) {
+                return Some((e, t));
+            }
+        }
+    }
+    None
 }
 
 /// Pure helper: aggressive **side/orbit** camera translation when first alt is still similar.
@@ -1679,13 +1702,83 @@ pub fn query_all_subjects(client: &BrpClient) -> Vec<EyesightSubject> {
         "bevy_ecs::name::Name",
         "bevy_transform::components::transform::Transform",
     ];
-    if let Ok(q) = client.query(&comps) {
-        return subjects_from_query(&q);
+    let mut subjects = if let Ok(q) = client.query(&comps) {
+        subjects_from_query(&q)
+    } else if let Ok(q) = client.query(&["Name", "Transform"]) {
+        subjects_from_query(&q)
+    } else {
+        Vec::new()
+    };
+    // S1: ChildOf is often AND-filtered out of multi-component queries — merge from a
+    // second query (live IF: ChildOf-only returns ~100 rows; Name+Transform+ChildOf → 0).
+    merge_childof_parents(client, &mut subjects);
+    subjects
+}
+
+/// Merge parent ids from a ChildOf-only BRP query into subjects by entity id (S1).
+fn merge_childof_parents(client: &BrpClient, subjects: &mut [EyesightSubject]) {
+    let child_queries = [
+        ["bevy_ecs::hierarchy::ChildOf"].as_slice(),
+        ["ChildOf"].as_slice(),
+    ];
+    for comps in child_queries {
+        if let Ok(q) = client.query(comps) {
+            let map = parent_map_from_childof_query(&q);
+            if map.is_empty() {
+                continue;
+            }
+            for s in subjects.iter_mut() {
+                if s.parent_entity.is_some() {
+                    continue;
+                }
+                if let Some(eid) = s.entity {
+                    if let Some(&pid) = map.get(&eid) {
+                        s.parent_entity = Some(pid);
+                    }
+                }
+            }
+            return;
+        }
     }
-    if let Ok(q) = client.query(&["Name", "Transform"]) {
-        return subjects_from_query(&q);
+}
+
+/// Pure helper: entity_id → parent_id from a ChildOf-only `world.query` result (S1).
+pub fn parent_map_from_childof_query(query: &Value) -> std::collections::HashMap<u64, u64> {
+    let mut map = std::collections::HashMap::new();
+    let rows = match query {
+        Value::Array(a) => a.clone(),
+        Value::Object(o) => o
+            .get("result")
+            .and_then(|r| r.as_array())
+            .cloned()
+            .or_else(|| o.get("entities").and_then(|e| e.as_array()).cloned())
+            .unwrap_or_default(),
+        _ => Vec::new(),
+    };
+    for row in rows {
+        let entity = row
+            .get("entity")
+            .and_then(|e| e.as_u64())
+            .or_else(|| row.get("id").and_then(|e| e.as_u64()));
+        let Some(eid) = entity else { continue };
+        let comps = row
+            .get("components")
+            .cloned()
+            .unwrap_or_else(|| row.clone());
+        if let Some(pid) = extract_parent_entity(&comps) {
+            map.insert(eid, pid);
+        } else if let Some(obj) = comps.as_object() {
+            // Bare ChildOf:u64 under component key
+            for (k, v) in obj {
+                if k.contains("ChildOf") || k.ends_with("Parent") {
+                    if let Some(pid) = v.as_u64() {
+                        map.insert(eid, pid);
+                    }
+                }
+            }
+        }
     }
-    Vec::new()
+    map
 }
 
 /// Draw a simple 1px colored rectangle outline (diagnostic bounds, A6).
@@ -2190,6 +2283,14 @@ pub fn see_entity(
             "fovea used center fallback for '{entity_name}' — pass screen_x/y or ensure Name+Transform"
         ));
     }
+    // S3: dark/unreadable fovea — aim may be correct but craft not judgeable
+    if let Ok(frac) = path_nonblack_fraction(&crop_path, 30) {
+        if frac < FOVEA_CROP_NONBLACK_MIN {
+            packet.push_warning(format!(
+                "fovea_dark: crop nonblack={frac:.3} (min {FOVEA_CROP_NONBLACK_MIN}) for '{entity_name}' @ ({cx},{cy}) — do not claim craft identity from this crop alone"
+            ));
+        }
+    }
 
     if opts.zoom_ladder {
         let half2 = half / 2;
@@ -2653,8 +2754,32 @@ pub fn see_pack(
             } else {
                 apply_game_profile(&mut opts, "crystal-drift");
             }
+            // S4: wait briefly for env Names so nebulas/station paint before capture
+            let env_wait = [
+                "Nebula".to_string(),
+                "WarpGate".to_string(),
+                "Station".to_string(),
+                "Player".to_string(),
+            ];
+            let _ = wait_for_subject_names(client, &env_wait, Duration::from_secs(4));
+            thread::sleep(Duration::from_millis(200));
+
             let full_path = eyesight_path(&opts.out_dir, "pack_env_2d_full.png");
-            let img = capture_viewport_image(client, &full_path)?;
+            let mut img = capture_viewport_image(client, &full_path)?;
+            // If first full is nearly black, wait and recapture once (load timing flake)
+            if path_nonblack_fraction(&img.path, 30).unwrap_or(0.0) < FULL_FRAME_NONBLACK_MIN {
+                thread::sleep(Duration::from_millis(400));
+                img = capture_viewport_image(client, &full_path)?;
+                if path_nonblack_fraction(&img.path, 30).unwrap_or(0.0) < FULL_FRAME_NONBLACK_MIN {
+                    packet.push_warning(
+                        "env_2d_dark: full frame nonblack below FULL_FRAME_NONBLACK_MIN after retry — do not claim env composition from this pack alone",
+                    );
+                } else {
+                    packet.push_warning(
+                        "env_2d: first full capture was dark; retry succeeded",
+                    );
+                }
+            }
             packet.captures.push(
                 CaptureEntry::from_path(CaptureRole::Full, &img.path)?
                     .with_note("env_2d full (parallax/composition)"),
@@ -2683,10 +2808,6 @@ pub fn see_pack(
             packet.subjects = filtered;
             packet.app_state = inferred;
             packet.primary_subject = rank_primary_subject(&packet.subjects);
-            // Prefer env Names for primary in env_2d when Player not ranked first
-            if packet.primary_subject.as_deref() == Some("Player") {
-                // keep Player; craft is fine
-            }
         }
         "landscape" | "water" => {
             let mut opts = opts.clone();
@@ -3851,6 +3972,53 @@ mod tests {
             "bevy_ecs::hierarchy::ChildOf": { "0": 42 }
         });
         assert_eq!(extract_parent_entity(&comps), Some(42));
+    }
+
+    #[test]
+    fn parent_map_from_childof_bare_u64() {
+        // Live IF shape: ChildOf-only query returns bare parent entity id.
+        let q = json!([
+            {
+                "entity": 100,
+                "components": { "bevy_ecs::hierarchy::ChildOf": 10 }
+            },
+            {
+                "entity": 101,
+                "components": { "bevy_ecs::hierarchy::ChildOf": 10 }
+            }
+        ]);
+        let map = parent_map_from_childof_query(&q);
+        assert_eq!(map.get(&100), Some(&10));
+        assert_eq!(map.get(&101), Some(&10));
+    }
+
+    #[test]
+    fn find_dedicated_view_camera_prefers_named() {
+        let subs = vec![
+            EyesightSubject {
+                name: "StrategyCamera".into(),
+                entity: Some(1),
+                translation: Some([3.0, 28.0, 10.0]),
+                parent_entity: None,
+                ..Default::default()
+            },
+            EyesightSubject {
+                name: "AgentSightSideCamera".into(),
+                entity: Some(2),
+                translation: Some([-20.0, 12.0, 30.0]),
+                parent_entity: None,
+                ..Default::default()
+            },
+        ];
+        let (e, t) = find_dedicated_view_camera(&subs).expect("side cam");
+        assert_eq!(e, 2);
+        assert!((t[0] + 20.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn fovea_crop_nonblack_min_is_strict() {
+        assert!(FOVEA_CROP_NONBLACK_MIN > 0.0);
+        assert!(FOVEA_CROP_NONBLACK_MIN < FULL_FRAME_NONBLACK_MIN);
     }
 
     #[test]
