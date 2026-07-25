@@ -48,16 +48,18 @@
 
 ## E6 Full workflow
 
-**agent-sight-dogfood-4** — overall **`passed: true`**, skeptic **green** (~6m).
+**agent-sight-dogfood-4** — overall **`passed: true`**, skeptic **green** (~6m) — pre–S3-craft-gate re-proof.
+
+**agent-sight-dogfood-5** (after craft-luma `fovea_dark` + MCP install) — overall **`passed: true`**, skeptic **green** (~5.5m).
 
 | Phase | Result |
 |-------|--------|
-| Gates | PASS · 56+ brp tests · mcp_rebuilt=false |
+| Gates | PASS · 103 tests (57+ brp) · mcp_rebuilt=false (skip_install; install done pre-run) |
 | CD | Player · CargoPod · magenta 0 · env_2d_dark warned honestly when space-black |
-| IF | StrategyCamera · OreCrusher @ (1949,801) topdown3d · packs [mutated][restored] · multi-view differs |
-| Skeptic | green · failures [] |
+| IF | StrategyCamera · OreCrusher @ (1949,801) topdown3d · packs [mutated][restored] · multi-view differs · **fovea_dark craft_nonblack=0.254 mean~35** |
+| Skeptic | green · 18 claims · failures [] · confirmed packet `fovea_dark` + no craft identity from crop |
 
-Evidence: `{SCRATCH}/workflow-soft-full-report.md`, `workflow-soft-full.log`, `gbr-tests.log`, `mcp-surface.log`, `hierarchy-brp.json`, `soft-baseline.md`.
+Evidence: `{SCRATCH}/workflow-soft-full-report.md`, `entity_OreCrusher_packet.json` (warnings include `fovea_dark`), `entity_OreCrusher_crop.png`, `gbr-tests.log`, `mcp-surface.log`, commit `497c792`.
 
 ## Residual
 
